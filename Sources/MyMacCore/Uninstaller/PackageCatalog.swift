@@ -11,15 +11,33 @@ public enum PackageCatalog {
         PackageEcosystem.allCases.flatMap { scan($0, home: home) }
     }
 
+    /// Reads **every** install root that exists, not just the first.
+    ///
+    /// Reading only the first silently halved the list on a very ordinary
+    /// setup: an Apple Silicon Mac running an arm64 Homebrew in `/opt/homebrew`
+    /// alongside an x86_64 one under Rosetta in `/usr/local`. Nothing said the
+    /// list was partial, so a package that was never removed looked removed.
     public static func scan(_ ecosystem: PackageEcosystem,
                             home: URL = FileManager.default.homeDirectoryForCurrentUser) -> [InstalledItem] {
-        guard let root = ecosystem.roots(home: home).first(where: directoryExists) else { return [] }
-        switch ecosystem.layout {
-        case .versionedDirectory: return versionedPackages(in: root, ecosystem: ecosystem)
-        case .nodeModules: return nodePackages(in: root, ecosystem: ecosystem)
-        case .pythonDistInfo: return pythonPackages(under: root, ecosystem: ecosystem)
-        case .manifestDependencies: return manifestPackages(in: root, ecosystem: ecosystem)
+        var seen = Set<String>()
+        var items: [InstalledItem] = []
+
+        for root in ecosystem.roots(home: home) where directoryExists(root) {
+            let found: [InstalledItem]
+            switch ecosystem.layout {
+            case .versionedDirectory: found = versionedPackages(in: root, ecosystem: ecosystem)
+            case .nodeModules: found = nodePackages(in: root, ecosystem: ecosystem)
+            case .pythonDistInfo: found = pythonPackages(under: root, ecosystem: ecosystem)
+            case .manifestDependencies: found = manifestPackages(in: root, ecosystem: ecosystem)
+            }
+            // Two roots can resolve to the same directory through a symlink;
+            // the location is what makes an entry distinct, not the name, since
+            // the same package legitimately exists under both prefixes.
+            for item in found where seen.insert(item.id).inserted {
+                items.append(item)
+            }
         }
+        return items
     }
 
     /// Exposed so the node-modules layout can be tested against a fixture
@@ -96,9 +114,13 @@ public enum PackageCatalog {
 
     // MARK: - Helpers
 
+    /// Keyed on the location, not the name: with every prefix scanned, the same
+    /// package can legitimately be installed twice — an arm64 copy and an
+    /// x86_64 one — and two rows sharing an identity would collide in the table.
     private static func item(name: String, version: String?, location: URL,
                              ecosystem: PackageEcosystem) -> InstalledItem {
-        InstalledItem(id: "\(ecosystem.rawValue):\(name)", name: name, version: version,
+        InstalledItem(id: "\(ecosystem.rawValue):\(location.standardizedFileURL.path)",
+                      name: name, version: version,
                       source: .package(ecosystem), location: location)
     }
 

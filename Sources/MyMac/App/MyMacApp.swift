@@ -156,17 +156,7 @@ struct MyMacApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("MyMac", id: MainWindow.identifier) {
-            MainWindowView()
-                .environment(store)
-                .environment(cleaner)
-                .environment(uninstaller)
-                .environment(permissions)
-                .environment(processActions)
-                // Large enough that the dashboard and the CPU page always fit
-                // without a scroll bar.
-                .frame(minWidth: 880, minHeight: 620)
-        }
+        mainWindow
         .defaultSize(width: 1000, height: 680)
         .commands {
             CommandGroup(replacing: .newItem) {}
@@ -186,6 +176,30 @@ struct MyMacApp: App {
                         .keyboardShortcut(KeyEquivalent(Character("\((index + 1) % 10)")), modifiers: .command)
                 }
             }
+        }
+    }
+
+    /// The dashboard window.
+    ///
+    /// SwiftUI's `defaultLaunchBehavior(.suppressed)` and
+    /// `restorationBehavior(.disabled)` are what would say "do not put this on
+    /// screen at launch" declaratively, and a comment in `AppDelegate` used to
+    /// claim they were doing so. They were never applied, and they cannot be
+    /// while the deployment target is macOS 14: both need macOS 15, and
+    /// `SceneBuilder` has no `buildEither`, so there is no way to attach them
+    /// behind an availability check. `AppDelegate` handles it for every version
+    /// instead — one mechanism rather than two that have to agree.
+    private var mainWindow: some Scene {
+        Window("MyMac", id: MainWindow.identifier) {
+            MainWindowView()
+                .environment(store)
+                .environment(cleaner)
+                .environment(uninstaller)
+                .environment(permissions)
+                .environment(processActions)
+                // Large enough that the dashboard and the CPU page always fit
+                // without a scroll bar.
+                .frame(minWidth: 880, minHeight: 620)
         }
     }
 }
@@ -254,12 +268,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    /// A menu bar utility must not put a window on screen when it launches, and
+    /// must not have one restored onto it at login either.
+    ///
+    /// This used to be gated to macOS 14 on the belief that `MyMacApp` applied
+    /// `defaultLaunchBehavior(.suppressed)` on newer systems. It never did —
+    /// the name appeared only in this comment — so on macOS 15 and later
+    /// nothing was enforcing it at all, and the app was relying on SwiftUI
+    /// happening to leave the window closed because `MenuBarExtra` is declared
+    /// first. The gate is gone: this now runs everywhere, which is also the
+    /// only option while the deployment target is macOS 14 (see `mainWindow`).
+    ///
+    /// Run one turn of the run loop later, so anything SwiftUI opened — or
+    /// macOS restored — already exists to be closed.
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.info("MyMac launched")
-        guard #unavailable(macOS 15.0) else { return }
-        // Fallback for macOS 14, which has no `defaultLaunchBehavior`.
         DispatchQueue.main.async {
             for window in NSApp.windows where window.isVisible && window.canBecomeMain {
+                Log.app.info("closing a window opened at launch; this app starts in the menu bar")
                 window.close()
             }
             NSApp.setActivationPolicy(.accessory)

@@ -69,28 +69,150 @@ public enum CommandRunner {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
+        // Nothing is ever written to the child's standard input. Left inherited,
+        // a tool that decides to ask a question would sit there for ever with
+        // nobody to answer it.
+        process.standardInput = FileHandle.nullDevice
+
+        // Drain the pipe as it fills, on Foundation's own queue. A full pipe
+        // buffer blocks the child, so reading has to run alongside the wait
+        // rather than before it — the previous version read to EOF first, which
+        // meant it only ever returned once the child had already exited.
+        let output = OutputCollector(pipe.fileHandleForReading)
+
+        // Armed before `run()`: assigning a termination handler to a process
+        // that has already exited never fires it.
+        let exit = ExitWaiter()
+        process.terminationHandler = { exit.finish($0.terminationStatus) }
 
         try process.run()
+        let pid = process.processIdentifier
 
-        let handle = pipe.fileHandleForReading
-        // Read to end before waiting: a full pipe buffer would deadlock a
-        // process that is still writing.
-        let data = try await Task.detached(priority: .utility) {
-            try handle.readToEnd() ?? Data()
-        }.value
-
+        // The deadline starts here, before anything can block. Previously it was
+        // created after the read had already returned, so it could only fire
+        // once the child was gone — exactly when it is not needed. A wedged
+        // package manager held the actor, and the interface, for ever.
+        //
+        // Only the pid crosses into the task: `Process` is not `Sendable`, and a
+        // signal is all that terminating it amounts to anyway.
         let deadline = Task {
             try await Task.sleep(for: timeout)
-            if process.isRunning { process.terminate() }
+            guard !exit.hasFinished else { return }
+            exit.markTimedOut()
+            kill(pid, SIGTERM)
+            // SIGTERM is a request. A tool that ignores it gets one grace
+            // period, then the blunt instrument.
+            try await Task.sleep(for: .seconds(5))
+            guard !exit.hasFinished else { return }
+            kill(pid, SIGKILL)
         }
-        process.waitUntilExit()
+
+        let status = await exit.value()
         deadline.cancel()
 
-        let output = String(decoding: data, as: UTF8.self)
+        let text = String(decoding: await output.value(), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard process.terminationStatus == 0 else {
-            throw Failure.failed(status: process.terminationStatus, output: output)
+
+        if exit.didTimeOut { throw Failure.timedOut }
+        guard status == 0 else {
+            throw Failure.failed(status: status, output: text)
         }
-        return output
+        return text
+    }
+}
+
+/// Bridges `Process.terminationHandler` — which fires on an arbitrary thread,
+/// possibly before anyone has started waiting — to one `async` resumption.
+private final class ExitWaiter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var status: Int32?
+    private var continuation: CheckedContinuation<Int32, Never>?
+    private var timedOut = false
+
+    var hasFinished: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return status != nil
+    }
+
+    var didTimeOut: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return timedOut
+    }
+
+    func markTimedOut() {
+        lock.lock(); defer { lock.unlock() }
+        timedOut = true
+    }
+
+    func finish(_ value: Int32) {
+        lock.lock()
+        guard status == nil else { return lock.unlock() }
+        status = value
+        let waiting = continuation
+        continuation = nil
+        lock.unlock()
+        waiting?.resume(returning: value)
+    }
+
+    func value() async -> Int32 {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if let status {
+                lock.unlock()
+                continuation.resume(returning: status)
+            } else {
+                self.continuation = continuation
+                lock.unlock()
+            }
+        }
+    }
+}
+
+/// Accumulates a child's combined output as it arrives, and resumes once the
+/// pipe reaches end of file — which happens when the child and Foundation have
+/// both let go of the write end.
+private final class OutputCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+    private var isClosed = false
+    private var continuation: CheckedContinuation<Data, Never>?
+
+    init(_ handle: FileHandle) {
+        handle.readabilityHandler = { [self] handle in
+            let chunk = handle.availableData
+            guard !chunk.isEmpty else {
+                handle.readabilityHandler = nil
+                close()
+                return
+            }
+            lock.lock()
+            data.append(chunk)
+            lock.unlock()
+        }
+    }
+
+    private func close() {
+        lock.lock()
+        guard !isClosed else { return lock.unlock() }
+        isClosed = true
+        let waiting = continuation
+        let collected = data
+        continuation = nil
+        lock.unlock()
+        waiting?.resume(returning: collected)
+    }
+
+    func value() async -> Data {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if isClosed {
+                let collected = data
+                lock.unlock()
+                continuation.resume(returning: collected)
+            } else {
+                self.continuation = continuation
+                lock.unlock()
+            }
+        }
     }
 }

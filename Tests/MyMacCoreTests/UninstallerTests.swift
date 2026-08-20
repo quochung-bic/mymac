@@ -121,6 +121,42 @@ struct PackageCatalogTests {
         #expect(items.count == 2, "the @angular scope directory is not a package")
     }
 
+    /// Only the first existing root used to be read. On an Apple Silicon Mac
+    /// running both an arm64 Homebrew in /opt/homebrew and an x86_64 one under
+    /// Rosetta in /usr/local, that silently halved the list — with nothing
+    /// saying it was partial, so a package that was never removed looked gone.
+    ///
+    /// pnpm is the ecosystem whose two candidate roots are both under the home
+    /// folder, so the case can be built without touching the real machine.
+    @Test func readsEveryInstallRootNotJustTheFirst() throws {
+        let temp = try TemporaryDirectory()
+        let first = try temp.makeDirectory("Library/pnpm/global/5/node_modules/alpha")
+        try Data(#"{"version":"1.0.0"}"#.utf8).write(to: first.appendingPathComponent("package.json"))
+        let second = try temp.makeDirectory(".local/share/pnpm/global/5/node_modules/beta")
+        try Data(#"{"version":"2.0.0"}"#.utf8).write(to: second.appendingPathComponent("package.json"))
+
+        let items = PackageCatalog.scan(.pnpm, home: temp.url)
+        let names = Set(items.map(\.name))
+
+        #expect(names == ["alpha", "beta"], "both roots must be read, got \(names)")
+    }
+
+    /// The same package can legitimately exist under two prefixes, so a row's
+    /// identity has to be its location — two rows sharing an id collide in the
+    /// table and one of them disappears.
+    @Test func packagesInDifferentRootsKeepDistinctIdentities() throws {
+        let temp = try TemporaryDirectory()
+        for root in ["Library/pnpm/global/5/node_modules", ".local/share/pnpm/global/5/node_modules"] {
+            let directory = try temp.makeDirectory("\(root)/shared")
+            try Data(#"{"version":"1.0.0"}"#.utf8).write(to: directory.appendingPathComponent("package.json"))
+        }
+
+        let items = PackageCatalog.scan(.pnpm, home: temp.url)
+
+        #expect(items.count == 2)
+        #expect(Set(items.map(\.id)).count == 2, "two installs of one package need two identities")
+    }
+
     @Test func findsRealPackagesOnThisMac() {
         let items = PackageCatalog.scan()
         let grouped = Dictionary(grouping: items, by: \.source.title).mapValues(\.count)
@@ -239,6 +275,38 @@ struct ResolvedUninstallCommandTests {
         let program = try #require(command.split(separator: " ").first.map(String.init))
         #expect(URL(fileURLWithPath: program).lastPathComponent.hasPrefix("pip"),
                 "expected pip, got \(program)")
+    }
+
+    /// An Intel Homebrew in /usr/local cannot uninstall an Apple Silicon
+    /// formula in /opt/homebrew. The tool has to come from the same prefix as
+    /// the package, so candidates under that prefix are tried first.
+    @Test func theToolIsChosenFromThePackagesOwnPrefix() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let intel = URL(fileURLWithPath: "/usr/local/Cellar/wget/1.25.0")
+        let appleSilicon = URL(fileURLWithPath: "/opt/homebrew/Cellar/wget/1.25.0")
+
+        let forIntel = PackageEcosystem.homebrew.executables(home: home, near: intel)
+        #expect(forIntel.first?.path == "/usr/local/bin/brew")
+
+        let forAppleSilicon = PackageEcosystem.homebrew.executables(home: home, near: appleSilicon)
+        #expect(forAppleSilicon.first?.path == "/opt/homebrew/bin/brew")
+    }
+
+    @Test func withoutALocationTheLikelihoodOrderIsKept() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let candidates = PackageEcosystem.homebrew.executables(home: home)
+        #expect(candidates.first?.path == "/opt/homebrew/bin/brew")
+        #expect(candidates.map(\.path) == PackageEcosystem.homebrew
+            .executables(home: home, near: nil).map(\.path))
+    }
+
+    @Test func everyCandidateStaysInTheListWhenOneIsPromoted() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let plain = PackageEcosystem.homebrew.executables(home: home)
+        let promoted = PackageEcosystem.homebrew.executables(
+            home: home, near: URL(fileURLWithPath: "/usr/local/Cellar/wget/1.25.0"))
+        #expect(Set(plain.map(\.path)) == Set(promoted.map(\.path)),
+                "promoting a prefix must reorder the candidates, never drop any")
     }
 
     @Test func homebrewResolvesToBrew() throws {

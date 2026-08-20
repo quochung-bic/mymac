@@ -87,7 +87,12 @@ public actor UninstallService {
     private func removePackage(_ item: InstalledItem, ecosystem: PackageEcosystem) async -> Outcome {
         do {
             try CommandRunner.validate(item.name)
-            guard let executable = CommandRunner.firstExecutable(among: ecosystem.executables(home: home)) else {
+            // `near:` so the tool comes from the same prefix as the package.
+            // Running an arm64 brew against an x86_64 formula fails in a way
+            // that reads like the package is broken rather than mismatched.
+            guard let executable = CommandRunner.firstExecutable(
+                among: ecosystem.executables(home: home, near: item.location)
+            ) else {
                 throw CommandRunner.Failure.executableNotFound
             }
             let output = try await CommandRunner.run(

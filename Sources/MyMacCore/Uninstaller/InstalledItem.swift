@@ -136,7 +136,13 @@ public enum PackageEcosystem: String, Sendable, CaseIterable, Identifiable {
     }
 
     /// Executables that can perform the uninstall, most likely first.
-    public func executables(home: URL) -> [URL] {
+    ///
+    /// - Parameter near: where the package being removed actually lives. A tool
+    ///   has to come from the same prefix as the package it manages: an Intel
+    ///   Homebrew in `/usr/local` cannot uninstall an Apple Silicon formula in
+    ///   `/opt/homebrew`, and plenty of Macs have both installed side by side.
+    ///   Candidates under the package's own prefix are therefore tried first.
+    public func executables(home: URL, near location: URL? = nil) -> [URL] {
         let names: [String]
         switch self {
         case .homebrew, .homebrewCask: names = ["brew"]
@@ -150,7 +156,20 @@ public enum PackageEcosystem: String, Sendable, CaseIterable, Identifiable {
                            home.appendingPathComponent(".bun/bin").path,
                            home.appendingPathComponent("Library/pnpm").path,
                            home.appendingPathComponent(".local/bin").path]
-        return directories.flatMap { directory in
+
+        // A stable partition rather than a sort: `sorted(by:)` is not
+        // guaranteed stable, and the existing order is the likelihood order.
+        let ordered: [String]
+        if let path = location?.standardizedFileURL.path {
+            let sharesPrefix = { (directory: String) in
+                path.hasPrefix(URL(fileURLWithPath: directory).deletingLastPathComponent().path + "/")
+            }
+            ordered = directories.filter(sharesPrefix) + directories.filter { !sharesPrefix($0) }
+        } else {
+            ordered = directories
+        }
+
+        return ordered.flatMap { directory in
             names.map { URL(fileURLWithPath: directory).appendingPathComponent($0) }
         }
     }
@@ -162,10 +181,11 @@ public enum PackageEcosystem: String, Sendable, CaseIterable, Identifiable {
     /// Apple Silicon Homebrew can be told apart from an Intel one. `nil` when
     /// the tool is not installed where this app looks for it — the interface
     /// says so rather than displaying a command that cannot run.
-    public func resolvedUninstallCommand(for package: String, home: URL) -> String? {
-        guard let executable = CommandRunner.firstExecutable(among: executables(home: home)) else {
-            return nil
-        }
+    public func resolvedUninstallCommand(for package: String, home: URL,
+                                         near location: URL? = nil) -> String? {
+        guard let executable = CommandRunner.firstExecutable(
+            among: executables(home: home, near: location)
+        ) else { return nil }
         return ([executable.path] + uninstallArguments(for: package)).joined(separator: " ")
     }
 
