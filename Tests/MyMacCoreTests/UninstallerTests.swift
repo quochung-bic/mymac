@@ -1,0 +1,189 @@
+import Foundation
+import Testing
+@testable import MyMacCore
+
+@Suite("Command safety")
+struct CommandSafetyTests {
+    @Test func acceptsRealPackageNames() throws {
+        for name in ["typescript", "@angular/cli", "eslint-plugin-import", "ruff", "node@20", "pillow"] {
+            try CommandRunner.validate(name)
+        }
+    }
+
+    @Test func refusesAnythingThatCouldBeMistakenForSyntax() {
+        for name in ["", "-rf", "--force", "a;rm -rf /", "a b", "a$(whoami)", "a`id`", "a&b", "a|b",
+                     "a\nb", "a'b", "a\"b", "../etc", "a>b"] {
+            #expect(throws: CommandRunner.Failure.self) { try CommandRunner.validate(name) }
+        }
+    }
+
+    @Test func refusesOverlongNames() {
+        #expect(throws: CommandRunner.Failure.self) {
+            try CommandRunner.validate(String(repeating: "a", count: 300))
+        }
+    }
+
+    @Test func reportsMissingExecutables() {
+        #expect(CommandRunner.firstExecutable(among: [URL(fileURLWithPath: "/nowhere/nothing")]) == nil)
+    }
+}
+
+@Suite("Application catalog")
+struct ApplicationCatalogTests {
+    @Test func readsNameVersionAndIdentifierFromABundle() throws {
+        let temp = try TemporaryDirectory()
+        let app = try temp.makeDirectory("Applications/Example.app/Contents")
+        let plist: [String: Any] = [
+            "CFBundleIdentifier": "com.example.app",
+            "CFBundleName": "Example",
+            "CFBundleShortVersionString": "2.1",
+        ]
+        let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+        try data.write(to: app.appendingPathComponent("Info.plist"))
+
+        let item = try #require(ApplicationCatalog.application(at: app.deletingLastPathComponent()))
+        #expect(item.name == "Example")
+        #expect(item.version == "2.1")
+        #expect(item.bundleIdentifier == "com.example.app")
+    }
+
+    @Test func skipsApplesOwnApplications() {
+        #expect(ApplicationCatalog.isSystemApplication(bundleIdentifier: "com.apple.Safari"))
+        #expect(!ApplicationCatalog.isSystemApplication(bundleIdentifier: "com.example.app"))
+        #expect(!ApplicationCatalog.isSystemApplication(bundleIdentifier: nil))
+    }
+
+    @Test func findsRealApplicationsOnThisMac() {
+        let items = ApplicationCatalog.scan()
+        print("APPS \(items.count): \(items.prefix(5).map { "\($0.name) \($0.version ?? "?")" })")
+        #expect(!items.isEmpty)
+        #expect(items.allSatisfy { $0.bundleIdentifier?.hasPrefix("com.apple.") != true })
+    }
+}
+
+@Suite("Leftover scanner")
+struct LeftoverScannerTests {
+    @Test func findsSupportFilesKeyedOnTheBundleIdentifier() throws {
+        let temp = try TemporaryDirectory()
+        try temp.makeFile("Library/Application Support/com.example.app/state.db", bytes: 4096)
+        try temp.makeFile("Library/Preferences/com.example.app.plist", bytes: 2048)
+        try temp.makeFile("Library/Containers/com.example.app/Data/x.bin", bytes: 8192)
+        try temp.makeFile("Library/Group Containers/ABCDE.com.example.app/shared.db", bytes: 4096)
+        // Belongs to a different app and must not be picked up.
+        try temp.makeFile("Library/Application Support/com.other.app/state.db", bytes: 4096)
+
+        let item = InstalledItem(id: "x", name: "Example", version: nil, source: .application,
+                                 location: temp.url.appendingPathComponent("Applications/Example.app"),
+                                 bundleIdentifier: "com.example.app")
+        let leftovers = try LeftoverScanner.scan(for: item, home: temp.url)
+        let names = leftovers.map(\.url.lastPathComponent).sorted()
+
+        #expect(names.contains("com.example.app"))
+        #expect(names.contains("com.example.app.plist"))
+        #expect(names.contains("ABCDE.com.example.app"))
+        #expect(!leftovers.contains { $0.url.path.contains("com.other.app") })
+    }
+
+    @Test func reportsNothingForAnAppThatLeftNothing() throws {
+        let temp = try TemporaryDirectory()
+        try temp.makeDirectory("Library/Application Support")
+        let item = InstalledItem(id: "x", name: "Ghost", version: nil, source: .application,
+                                 location: temp.url.appendingPathComponent("Applications/Ghost.app"),
+                                 bundleIdentifier: "com.example.ghost")
+        #expect(try LeftoverScanner.scan(for: item, home: temp.url).isEmpty)
+    }
+
+    @Test func everySearchRootIsInsideTheUsersLibrary() {
+        let home = URL(fileURLWithPath: "/Users/example")
+        for root in LeftoverScanner.searchRoots(home: home) {
+            #expect(root.path.hasPrefix("/Users/example/Library/"))
+        }
+    }
+}
+
+@Suite("Package catalog")
+struct PackageCatalogTests {
+    @Test func readsNodeModulesIncludingScopedPackages() throws {
+        let temp = try TemporaryDirectory()
+        let root = try temp.makeDirectory("lib/node_modules")
+        try temp.makeDirectory("lib/node_modules/typescript")
+        try Data(#"{"version":"5.4.2"}"#.utf8)
+            .write(to: root.appendingPathComponent("typescript/package.json"))
+        try temp.makeDirectory("lib/node_modules/@angular/cli")
+        try Data(#"{"version":"17.0.0"}"#.utf8)
+            .write(to: root.appendingPathComponent("@angular/cli/package.json"))
+
+        let items = PackageCatalog.scanNodeModulesForTesting(root: root, ecosystem: .npm)
+        let byName = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.version) })
+
+        #expect(byName["typescript"] == "5.4.2")
+        #expect(byName["@angular/cli"] == "17.0.0")
+        #expect(items.count == 2, "the @angular scope directory is not a package")
+    }
+
+    @Test func findsRealPackagesOnThisMac() {
+        let items = PackageCatalog.scan()
+        let grouped = Dictionary(grouping: items, by: \.source.title).mapValues(\.count)
+        print("PACKAGES \(grouped)")
+        for item in items.prefix(4) { print("  \(item.source.title): \(item.name) \(item.version ?? "?")") }
+        #expect(items.allSatisfy { !$0.name.isEmpty })
+    }
+}
+
+@Suite("Uninstall safety")
+struct UninstallSafetyTests {
+    /// Populates a fake home with an app bundle and one support folder.
+    /// `TemporaryDirectory` is noncopyable, so it stays owned by the test.
+    private func populate(_ temp: borrowing TemporaryDirectory) throws -> InstalledItem {
+        let bundle = try temp.makeDirectory("Applications/Example.app")
+        try temp.makeFile("Applications/Example.app/Contents/MacOS/Example", bytes: 4096)
+        try temp.makeFile("Library/Application Support/com.example.app/state.db", bytes: 8192)
+        return InstalledItem(id: "app", name: "Example", version: "1.0", source: .application,
+                             location: bundle, bundleIdentifier: "com.example.app", size: 4096)
+    }
+
+    @Test func refusesAnApplicationOutsideTheApplicationsFolders() async throws {
+        let temp = try TemporaryDirectory()
+        let document = try temp.makeFile("Documents/thesis.pdf", bytes: 10_000)
+        let item = InstalledItem(id: "x", name: "Not An App", version: nil, source: .application,
+                                 location: document, bundleIdentifier: "com.example.fake", size: 10_000)
+
+        let outcome = await UninstallService(home: temp.url).uninstall(item, leftovers: [])
+
+        #expect(outcome.trashedCount == 0)
+        #expect(!outcome.succeeded)
+        #expect(FileManager.default.fileExists(atPath: document.path))
+    }
+
+    @Test func refusesALeftoverOutsideTheLibraryFoldersItSearches() async throws {
+        let temp = try TemporaryDirectory()
+        let item = try populate(temp)
+        let photo = try temp.makeFile("Pictures/holiday.jpg", bytes: 5_000)
+        let forged = CleanupItem(url: photo, name: "holiday.jpg", size: 5_000, modified: nil)
+
+        let outcome = await UninstallService(home: temp.url).uninstall(item, leftovers: [forged])
+
+        #expect(outcome.failures.contains { $0.path == photo.path })
+        #expect(FileManager.default.fileExists(atPath: photo.path),
+                "a path the leftover scanner could never have produced is refused")
+    }
+
+    @Test func refusesAPackageNameThatIsNotAPackageName() async throws {
+        let temp = try TemporaryDirectory()
+        let item = InstalledItem(id: "p", name: "--force", version: nil,
+                                 source: .package(.npm), location: temp.url, size: 0)
+
+        let outcome = await UninstallService(home: temp.url).uninstall(item, leftovers: [])
+
+        #expect(!outcome.succeeded)
+        #expect(outcome.trashedCount == 0)
+    }
+
+    @Test func everyEcosystemBuildsAnUninstallCommandThatEndsInThePackageName() throws {
+        for ecosystem in PackageEcosystem.allCases {
+            let arguments = ecosystem.uninstallArguments(for: "example-package")
+            #expect(arguments.last == "example-package")
+            #expect(arguments.allSatisfy { !$0.contains(" ") }, "\(ecosystem) built a joined argument")
+        }
+    }
+}
