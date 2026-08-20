@@ -43,6 +43,9 @@ public final class ProcessCollector {
         guard !processes.isEmpty else { return [] }
 
         let now = clock.now
+        // Read once, not once per process: this is a sysctl, and the loop below
+        // runs across every process on the machine.
+        let coreCount = Double(ProcessInfo.processInfo.activeProcessorCount)
         var samples: [ProcessSample] = []
         samples.reserveCapacity(processes.count)
         var seen = Set<pid_t>()
@@ -89,7 +92,7 @@ public final class ProcessCollector {
                 id: pid,
                 name: name,
                 kind: kind,
-                cpuUsage: cpuUsage.map { min(Double(ProcessInfo.processInfo.activeProcessorCount), max(0, $0)) },
+                cpuUsage: cpuUsage.map { min(coreCount, max(0, $0)) },
                 memoryFootprint: footprint,
                 isResponding: true
             ))

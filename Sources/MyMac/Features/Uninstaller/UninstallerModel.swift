@@ -104,6 +104,14 @@ final class UninstallerModel {
 
     var pendingTotalBytes: Int64 { (pending?.size ?? 0) + selectedLeftoverBytes }
 
+    /// The exact command that will run for a package, with the executable
+    /// resolved on this machine. `nil` for applications, which run nothing, and
+    /// for a manager whose tool is not installed where this app looks for it.
+    func uninstallCommand(for item: InstalledItem) -> String? {
+        guard case .package(let ecosystem) = item.source else { return nil }
+        return ecosystem.resolvedUninstallCommand(for: item.name, home: home)
+    }
+
     /// Uninstalling an app while it is running leaves half of it in memory and
     /// its state written back out afterwards.
     func isRunning(_ item: InstalledItem) -> Bool {

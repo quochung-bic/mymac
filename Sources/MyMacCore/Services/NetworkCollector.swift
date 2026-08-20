@@ -58,16 +58,22 @@ public final class NetworkCollector {
     private var isConnected = false
 
     private let clock = ContinuousClock()
-    private let monitor = NWPathMonitor()
+    /// Created fresh on every start, and released on stop.
+    ///
+    /// `NWPathMonitor` is single-use: once cancelled it never delivers another
+    /// update, so reusing one instance across a stop/start cycle would leave
+    /// the primary interface, the connectivity flag and every figure derived
+    /// from them frozen for the rest of the process's life.
+    private var monitor: NWPathMonitor?
     private let monitorQueue = DispatchQueue(label: "com.mymac.network-path", qos: .utility)
-    private var isMonitoring = false
 
     /// Constructible from anywhere; every method that touches state is isolated.
     public nonisolated init() {}
 
     public func start() {
-        guard !isMonitoring else { return }
-        isMonitoring = true
+        guard monitor == nil else { return }
+        let monitor = NWPathMonitor()
+        self.monitor = monitor
         monitor.pathUpdateHandler = { path in
             // Extract plain values on the monitor queue; only `Sendable`
             // primitives cross back onto the metrics actor.
@@ -91,10 +97,15 @@ public final class NetworkCollector {
     }
 
     public func stop() {
-        guard isMonitoring else { return }
-        isMonitoring = false
-        monitor.cancel()
+        monitor?.cancel()
+        monitor = nil
     }
+
+    /// Whether a live path monitor is attached. Internal so a test can assert
+    /// the invariant directly: the cached path values survive a stop, so a
+    /// black-box check cannot tell a live monitor from a dead one holding a
+    /// stale answer — which is precisely how this fault stayed hidden.
+    var isMonitoring: Bool { monitor != nil }
 
     private func apply(interface: String?, kind: String, connected: Bool,
                        expensive: Bool, constrained: Bool, tunnelled: Bool) {
@@ -109,6 +120,12 @@ public final class NetworkCollector {
     /// - Parameter includeRadio: whether anything on screen is showing Wi-Fi
     ///   signal detail. When false the radio is not touched at all.
     public func sample(includeRadio: Bool = false) -> NetworkStats {
+        // Re-arm rather than assume. A `stop()` belonging to a sampling loop
+        // that has already been cancelled can land after the next loop's
+        // `start()`, and the path monitor would then be dead for good. Starting
+        // it here makes that self-correcting: at worst one sample carries stale
+        // path information instead of every sample from then on.
+        start()
         let counters = Self.readInterfaceCounters()
         let now = clock.now
         var download = 0.0
@@ -126,19 +143,23 @@ public final class NetworkCollector {
                 var deltaSent: UInt64 = 0
                 var deltaPacketsIn: UInt64 = 0
                 var deltaPacketsOut: UInt64 = 0
-                for (name, current) in counters where Self.isMeasurable(name) {
+                for (name, current) in counters where Self.isWorthListing(name) {
                     guard let old = previous[name] else { continue }
                     // A counter that went backwards means the interface was
-                    // torn down and recreated; skip it rather than emit a spike.
-                    if current.received >= old.received { deltaReceived &+= current.received - old.received }
-                    if current.sent >= old.sent { deltaSent &+= current.sent - old.sent }
-                    if current.packetsIn >= old.packetsIn { deltaPacketsIn &+= current.packetsIn - old.packetsIn }
-                    if current.packetsOut >= old.packetsOut { deltaPacketsOut &+= current.packetsOut - old.packetsOut }
+                    // torn down and recreated; treat it as no traffic rather
+                    // than emit a spike.
+                    let received = current.received >= old.received ? current.received - old.received : 0
+                    let sent = current.sent >= old.sent ? current.sent - old.sent : 0
 
-                    let interfaceDownload = current.received >= old.received
-                        ? Double(current.received - old.received) / elapsed : 0
-                    let interfaceUpload = current.sent >= old.sent
-                        ? Double(current.sent - old.sent) / elapsed : 0
+                    if Self.countsTowardTotal(name) {
+                        deltaReceived &+= received
+                        deltaSent &+= sent
+                        if current.packetsIn >= old.packetsIn { deltaPacketsIn &+= current.packetsIn - old.packetsIn }
+                        if current.packetsOut >= old.packetsOut { deltaPacketsOut &+= current.packetsOut - old.packetsOut }
+                    }
+
+                    let interfaceDownload = Double(received) / elapsed
+                    let interfaceUpload = Double(sent) / elapsed
                     if interfaceDownload > 0 || interfaceUpload > 0 || name == primaryInterface {
                         active.append(NetworkInterfaceStats(id: name,
                                                             download: interfaceDownload,
@@ -187,10 +208,34 @@ public final class NetworkCollector {
         )
     }
 
+    /// Interfaces the per-interface breakdown shows.
+    ///
     /// Loopback traffic is not network traffic, and `awdl`/`llw` are Apple's
     /// peer-to-peer radios whose chatter would show as constant background use.
-    private nonisolated static func isMeasurable(_ name: String) -> Bool {
+    /// Everything else is listed, tunnels included — seeing that a VPN is
+    /// carrying the traffic is exactly what that list is for.
+    nonisolated static func isWorthListing(_ name: String) -> Bool {
         !name.hasPrefix("lo") && !name.hasPrefix("awdl") && !name.hasPrefix("llw")
+    }
+
+    /// Interfaces layered on top of another one, which must not be added to the
+    /// aggregate.
+    ///
+    /// A packet crossing a VPN is counted twice by the kernel: once on the
+    /// `utun` device and again on the `en` device that actually carried it.
+    /// Summing both reports roughly double the traffic that moved. The same
+    /// holds for a bridge, an Internet Sharing `ap` interface, and the `gif`
+    /// and `stf` tunnels. The physical interface underneath still accounts for
+    /// every byte, so nothing is lost by leaving these out of the total.
+    private nonisolated static let derivedInterfacePrefixes = [
+        "utun", "ipsec", "ppp", "bridge", "gif", "stf", "vmenet", "ap",
+    ]
+
+    /// Internal rather than private so the double-counting rule can be tested
+    /// against interface names without a live machine that happens to have a
+    /// VPN up.
+    nonisolated static func countsTowardTotal(_ name: String) -> Bool {
+        isWorthListing(name) && !derivedInterfacePrefixes.contains { name.hasPrefix($0) }
     }
 
     private nonisolated static func describe(_ type: NWInterface.InterfaceType?) -> String {

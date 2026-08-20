@@ -155,6 +155,20 @@ public enum PackageEcosystem: String, Sendable, CaseIterable, Identifiable {
         }
     }
 
+    /// The command that will actually run on this machine, executable resolved.
+    ///
+    /// The confirmation sheet shows this verbatim, so it has to be the real
+    /// thing: `brew`, not the name of the enum case, and the full path so an
+    /// Apple Silicon Homebrew can be told apart from an Intel one. `nil` when
+    /// the tool is not installed where this app looks for it — the interface
+    /// says so rather than displaying a command that cannot run.
+    public func resolvedUninstallCommand(for package: String, home: URL) -> String? {
+        guard let executable = CommandRunner.firstExecutable(among: executables(home: home)) else {
+            return nil
+        }
+        return ([executable.path] + uninstallArguments(for: package)).joined(separator: " ")
+    }
+
     /// The tool's own uninstall command. Removing a package's files by hand
     /// would leave the manager's own bookkeeping inconsistent, so this is the
     /// one place the app runs an external program.

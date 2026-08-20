@@ -187,3 +187,66 @@ struct UninstallSafetyTests {
         }
     }
 }
+
+/// Regression cover for the confirmation-sheet fault found in the 2026-08-20
+/// audit: the sheet showed `ecosystem.rawValue` — the name of the enum case —
+/// where the README promises "the exact command … before it runs".
+@Suite("Resolved uninstall command")
+struct ResolvedUninstallCommandTests {
+    private var emptyHome: URL {
+        URL(fileURLWithPath: "/nonexistent-home-\(UUID().uuidString)")
+    }
+
+    @Test func reportsNilWhenTheToolIsNotInstalled() {
+        // No executable can resolve under a home that does not exist, and the
+        // shared /usr/bin candidates hold none of these tools.
+        for ecosystem in [PackageEcosystem.pnpm, .bun, .yarn] {
+            #expect(ecosystem.resolvedUninstallCommand(for: "example", home: emptyHome) == nil,
+                    "\(ecosystem.rawValue) is not installed in /usr/bin")
+        }
+    }
+
+    @Test func namesTheRealProgramRatherThanTheEnumCase() throws {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        var checked = 0
+
+        for ecosystem in PackageEcosystem.allCases {
+            guard let command = ecosystem.resolvedUninstallCommand(for: "example-package", home: home) else {
+                continue
+            }
+            checked += 1
+
+            let program = try #require(command.split(separator: " ").first.map(String.init))
+            #expect(program.hasPrefix("/"), "must be an absolute path, got \(program)")
+            #expect(FileManager.default.isExecutableFile(atPath: program),
+                    "\(program) must actually be executable")
+            #expect(program != ecosystem.rawValue,
+                    "the enum case name is not a program")
+            #expect(command.hasSuffix(" example-package"),
+                    "the package name must survive intact: \(command)")
+        }
+
+        #expect(checked > 0, "no package manager found on this machine to check against")
+    }
+
+    /// `python` was the clearest symptom: the sheet said `python uninstall …`
+    /// while `pip3` is what runs.
+    @Test func pythonResolvesToPipNotPython() throws {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        guard let command = PackageEcosystem.python.resolvedUninstallCommand(for: "requests", home: home) else {
+            return  // pip is not installed here; nothing to assert.
+        }
+        let program = try #require(command.split(separator: " ").first.map(String.init))
+        #expect(URL(fileURLWithPath: program).lastPathComponent.hasPrefix("pip"),
+                "expected pip, got \(program)")
+    }
+
+    @Test func homebrewResolvesToBrew() throws {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        guard let command = PackageEcosystem.homebrewCask.resolvedUninstallCommand(for: "example", home: home) else {
+            return  // Homebrew is not installed here.
+        }
+        #expect(command.contains("/brew "), "expected the brew executable, got \(command)")
+        #expect(command.contains("--cask"))
+    }
+}

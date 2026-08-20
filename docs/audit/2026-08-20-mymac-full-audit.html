@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rà soát MyMac</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap&subset=latin,latin-ext,vietnamese">
+
+<style>
+:root {
+  --ground:      #F6F7F8;
+  --surface:     #FFFFFF;
+  --surface-alt: #EFF1F3;
+  --ink:         #171A1D;
+  --ink-muted:   #5A636D;
+  --ink-faint:   #8A939D;
+  --rule:        #DCE0E5;
+  --rule-strong: #C3CAD1;
+  --accent:      #26697A;
+  --accent-soft: #E2EEF1;
+  --sev1:        #A93317;
+  --sev1-soft:   #FBE9E4;
+  --sev2:        #93610E;
+  --sev2-soft:   #FAF0DC;
+  --sev3:        #5A636D;
+  --sev3-soft:   #ECEEF1;
+  --ok:          #2B6E48;
+  --ok-soft:     #E4F0E9;
+  --shadow:      0 1px 2px rgba(20,26,32,.05), 0 6px 18px -12px rgba(20,26,32,.22);
+
+  --measure: 68ch;
+  --f-display: "IBM Plex Sans", ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Serif", ui-serif, Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #101315;
+    --surface:     #171B1E;
+    --surface-alt: #1E2327;
+    --ink:         #E3E7EA;
+    --ink-muted:   #9AA4AD;
+    --ink-faint:   #6E7880;
+    --rule:        #272D32;
+    --rule-strong: #384047;
+    --accent:      #62AEBF;
+    --accent-soft: #17292E;
+    --sev1:        #E08165;
+    --sev1-soft:   #2C1913;
+    --sev2:        #D5A44F;
+    --sev2-soft:   #2A2212;
+    --sev3:        #9AA4AD;
+    --sev3-soft:   #1E2327;
+    --ok:          #6FB98C;
+    --ok-soft:     #14251B;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 6px 18px -12px rgba(0,0,0,.7);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #101315;
+  --surface:     #171B1E;
+  --surface-alt: #1E2327;
+  --ink:         #E3E7EA;
+  --ink-muted:   #9AA4AD;
+  --ink-faint:   #6E7880;
+  --rule:        #272D32;
+  --rule-strong: #384047;
+  --accent:      #62AEBF;
+  --accent-soft: #17292E;
+  --sev1:        #E08165;
+  --sev1-soft:   #2C1913;
+  --sev2:        #D5A44F;
+  --sev2-soft:   #2A2212;
+  --sev3:        #9AA4AD;
+  --sev3-soft:   #1E2327;
+  --ok:          #6FB98C;
+  --ok-soft:     #14251B;
+  --shadow:      0 1px 2px rgba(0,0,0,.4), 0 6px 18px -12px rgba(0,0,0,.7);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16.5px;
+  line-height: 1.62;
+  margin: 0;
+  padding: 0 20px 96px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 900px; margin: 0 auto; }
+
+/* ---------- masthead ---------- */
+
+.masthead {
+  padding: 56px 0 26px;
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: 0;
+}
+.eyebrow {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 14px;
+}
+h1 {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: clamp(2.1rem, 6vw, 3.1rem);
+  line-height: 1.06;
+  letter-spacing: -.022em;
+  text-wrap: balance;
+  margin: 0 0 18px;
+}
+.standfirst {
+  font-size: 1.06rem;
+  color: var(--ink-muted);
+  max-width: var(--measure);
+  margin: 0 0 26px;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 26px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.meta b { color: var(--ink-muted); font-weight: 500; }
+
+/* ---------- readout strip ---------- */
+
+.readout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 56px;
+}
+.tile {
+  background: var(--ground);
+  padding: 18px 16px 16px;
+}
+.tile .k {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: block;
+  margin-bottom: 5px;
+}
+.tile .v {
+  font-family: var(--f-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.tile .v small {
+  font-size: .62em;
+  font-weight: 500;
+  color: var(--ink-faint);
+  letter-spacing: 0;
+}
+.tile.p1 .v { color: var(--sev1); }
+.tile.p2 .v { color: var(--sev2); }
+.tile.ok .v { color: var(--ok); }
+
+/* ---------- structure ---------- */
+
+section { margin-bottom: 60px; }
+
+h2 {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: 1.62rem;
+  letter-spacing: -.018em;
+  line-height: 1.2;
+  text-wrap: balance;
+  margin: 0 0 6px;
+  padding-top: 4px;
+}
+.sec-lede {
+  color: var(--ink-muted);
+  font-size: .96rem;
+  max-width: var(--measure);
+  margin: 0 0 26px;
+}
+h3 {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: 1.12rem;
+  letter-spacing: -.01em;
+  margin: 0 0 8px;
+  text-wrap: balance;
+}
+p { max-width: var(--measure); margin: 0 0 13px; }
+p:last-child { margin-bottom: 0; }
+
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+code, .path {
+  font-family: var(--f-mono);
+  font-size: .845em;
+  background: var(--surface-alt);
+  padding: .1em .34em;
+  border-radius: 3px;
+  word-break: break-word;
+}
+
+/* ---------- root-cause cards ---------- */
+
+.roots { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.root {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--accent);
+  border-radius: 3px;
+  padding: 20px 18px;
+  box-shadow: var(--shadow);
+}
+.root .tag {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 8px;
+}
+.root h3 { font-size: 1rem; }
+.root p { font-size: .91rem; color: var(--ink-muted); max-width: none; }
+
+/* ---------- findings ---------- */
+
+.finding {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 22px 22px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.finding.s1 { border-left: 3px solid var(--sev1); }
+.finding.s2 { border-left: 3px solid var(--sev2); }
+
+.fhead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.fid {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  padding: 3px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.s1 .fid { background: var(--sev1-soft); color: var(--sev1); }
+.s2 .fid { background: var(--sev2-soft); color: var(--sev2); }
+.fhead h3 { flex: 1 1 260px; margin: 0; }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .05em;
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: var(--surface-alt);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.chip.verified { background: var(--ok-soft); color: var(--ok); }
+.chip.read { background: var(--surface-alt); color: var(--ink-faint); }
+
+.fmeta {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--ink-muted);
+  border-left: 2px solid var(--rule);
+  padding-left: 12px;
+  margin: 0 0 14px;
+  overflow-x: auto;
+}
+.fmeta b { color: var(--ink-faint); font-weight: 500; }
+.finding p { font-size: .96rem; }
+.finding p:not(:last-child) { margin-bottom: 12px; }
+
+.impact {
+  background: var(--surface-alt);
+  border-radius: 3px;
+  padding: 13px 15px;
+  margin: 14px 0 0;
+  font-size: .94rem;
+  max-width: none;
+}
+.impact b { font-family: var(--f-display); font-size: .84rem; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); display: block; margin-bottom: 4px; font-weight: 600; }
+
+pre {
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  background: var(--surface-alt);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 13px 15px;
+  overflow-x: auto;
+  margin: 0 0 14px;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+.out { color: var(--ok); }
+
+/* ---------- tables ---------- */
+
+.tw { overflow-x: auto; margin: 0 0 8px; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--f-display); font-size: .875rem; }
+th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+thead th {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 500;
+  background: var(--surface-alt);
+  white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+td code { font-size: 11.5px; }
+.tid { font-family: var(--f-mono); font-size: 11.5px; font-weight: 600; color: var(--sev3); white-space: nowrap; }
+
+/* ---------- callouts ---------- */
+
+.callout {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.callout.ok { border-left-color: var(--ok); }
+.callout p { max-width: none; }
+.verdict {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--ok);
+  margin-bottom: 10px !important;
+}
+
+ul.ticks { list-style: none; padding: 0; margin: 0; max-width: var(--measure); }
+ul.ticks li {
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 9px;
+  font-size: .96rem;
+}
+ul.ticks li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--ok);
+  font-family: var(--f-mono);
+  font-weight: 600;
+  font-size: .9em;
+}
+
+/* ---------- decisions ---------- */
+
+.decision {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.decision:last-child { border-bottom: none; }
+.decision .did {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  padding-top: 3px;
+}
+.decision .q { font-family: var(--f-display); font-weight: 600; font-size: 1rem; margin: 0 0 5px; max-width: none; }
+.decision .why { font-size: .93rem; color: var(--ink-muted); margin: 0; max-width: none; }
+
+/* ---------- plan ---------- */
+
+.round { margin-bottom: 26px; }
+.round-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid var(--rule-strong);
+  padding-bottom: 7px;
+  margin-bottom: 12px;
+}
+.round-head h3 { margin: 0; }
+.round-head .cost {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-left: auto;
+  white-space: nowrap;
+}
+ol.steps { margin: 0; padding-left: 22px; max-width: var(--measure); }
+ol.steps li { margin-bottom: 7px; font-size: .96rem; }
+ol.steps .ref { font-family: var(--f-mono); font-size: 11px; color: var(--ink-faint); }
+
+.foot {
+  margin-top: 64px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.foot p { max-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Deep audit · 20.08.2026</p>
+  <h1>Rà soát tổng thể MyMac</h1>
+  <p class="standfirst">Code chất lượng cao hơn hẳn mặt bằng của loại app này. Vấn đề không nằm ở chỗ viết ẩu — nó nằm ở ba điểm gãy cấu trúc, và ở chỗ tầng app không có lấy một bài test.</p>
+  <ul class="meta">
+    <li><b>Phạm vi</b> Sources · Tests · Scripts · Resources · README</li>
+    <li><b>Máy kiểm chứng</b> macOS 26.6.1 · arm64 · Swift 6</li>
+    <li><b>Không sửa code</b></li>
+  </ul>
+</header>
+
+<div class="readout">
+  <div class="tile"><span class="k">Dòng Swift</span><span class="v">10 157</span></div>
+  <div class="tile ok"><span class="k">Test pass</span><span class="v">109<small>/109</small></span></div>
+  <div class="tile ok"><span class="k">Warning</span><span class="v">0</span></div>
+  <div class="tile p1"><span class="k">P1</span><span class="v">3</span></div>
+  <div class="tile p2"><span class="k">P2</span><span class="v">9</span></div>
+  <div class="tile"><span class="k">P3</span><span class="v">18</span></div>
+  <div class="tile"><span class="k">Cần bạn quyết</span><span class="v">6</span></div>
+</div>
+
+<section>
+  <h2>Chuẩn đối chiếu</h2>
+  <p class="sec-lede">Một cuộc audit hỏi “hệ thống lệch đi đâu so với thứ nó lẽ ra phải là” — nên việc đầu tiên là tìm ra “thứ nó lẽ ra phải là”.</p>
+  <p>Repo không có <code>docs/</code>, ADR hay spec riêng. Chuẩn được xếp theo thẩm quyền: <b>README.md</b> (27 KB) là nguồn chuẩn chính — nó không phải hướng dẫn cài đặt mà là một design doc đầy đủ, ghi rõ ý đồ kiến trúc, chính sách lấy mẫu, mô hình an toàn của cleaner và cả những giới hạn tự nhận. Sau đó là <b>109 test</b> trong 28 suite, rồi đến <b>doc comment</b> trong source — repo này viết comment ở mức hiếm thấy, nhiều chỗ ghi lại đúng <i>lý do</i> của một quyết định.</p>
+  <p>Không có chuẩn nào cho localization, chiến lược phát hành, chính sách accessibility hay hỗ trợ Intel. Những mục đó là <b>quy tắc chưa được định nghĩa</b>, không phải bug — chúng nằm ở mục “Cần bạn quyết” bên dưới.</p>
+  <p>Repo <b>chưa được khởi tạo git</b>, nên không thể phân biệt nợ kỹ thuật cũ với thay đổi mới. Mọi phát hiện được nêu như hiện trạng, không phải lời buộc tội về một thay đổi cụ thể nào.</p>
+</section>
+
+<section>
+  <h2>Ba gốc rễ chung</h2>
+  <p class="sec-lede">Phần lớn phát hiện quy về ba nguyên nhân. Sửa theo gốc rẻ hơn nhiều so với sửa 30 mục rời rạc.</p>
+  <div class="roots">
+    <div class="root">
+      <span class="tag">GỐC A</span>
+      <h3>Vòng đời “scope” giả định không bao giờ bị dựng lại</h3>
+      <p><code>MetricsStore</code> dừng hẳn khi scope về 0 rồi khởi động lại. Nhưng thứ nó điều khiển lại là loại <b>dùng một lần</b>: <code>NWPathMonitor</code> sau <code>cancel()</code> không bao giờ phát sự kiện nữa. Sinh ra P1‑1.</p>
+    </div>
+    <div class="root">
+      <span class="tag">GỐC B</span>
+      <h3>Văn bản mô tả một thiết kế mà code đã đi chệch</h3>
+      <p>README, comment và cả <b>chữ hiển thị trong app</b> mô tả ý đồ ban đầu; code đổi sau, văn bản không đổi theo. Giải thích P1‑2, P2‑3, P2‑6, P3‑8 và 5 mâu thuẫn nội bộ của README.</p>
+    </div>
+    <div class="root">
+      <span class="tag">GỐC C</span>
+      <h3>Nhánh thất bại của hành động một lần chưa từng được chạy</h3>
+      <p><code>Sources/MyMac</code> có <b>0 test</b>. Mọi lỗi nhóm này nằm ở đường thất bại của một nút người dùng bấm một lần: P2‑1, P2‑2, P2‑5, P3‑11.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>P1 — Cần sửa trước khi công khai repo</h2>
+
+  <article class="finding s1">
+    <div class="fhead">
+      <span class="fid">P1-1</span>
+      <h3>Giám sát mạng chết vĩnh viễn sau một chu kỳ dừng/chạy</h3>
+      <div class="chips"><span class="chip">code sai chuẩn</span><span class="chip verified">✓ kiểm chứng thực nghiệm</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> MetricsStore.swift:91‑111 · NetworkCollector.swift:68‑97<br><b>Chuẩn</b> README §Sampling — “stops entirely when nothing is displaying metrics” hàm ý <i>chạy lại được</i></p>
+    <p><code>stop()</code> gọi <code>NWPathMonitor.cancel()</code>. Lần <code>start()</code> sau đó gọi <code>monitor.start(queue:)</code> trên chính đối tượng đã bị huỷ. Tôi viết một chương trình nhỏ để kiểm chứng thay vì suy đoán:</p>
+<pre><code>phase 1 update: satisfied
+--- cancel ---
+--- restart same monitor ---
+<span class="out">RESULT: updates before cancel = 1, updates after restart = 0</span></code></pre>
+    <p><b>Đường đi của người dùng thật:</b> Settings → Menu Bar → tắt cả <i>Show CPU</i> và <i>Show memory</i> — đây là hành vi <b>được chính README quảng cáo</b> — rồi đóng cửa sổ và mở lại Dashboard.</p>
+    <div class="impact"><b>Hậu quả</b>Collector giữ nguyên giá trị path cuối cùng nó nghe được và <b>không bao giờ nhận cập nhật nữa</b>. App ngừng nhận biết mọi thay đổi đường mạng: chuyển Wi-Fi sang Ethernet, rút cáp, bật/tắt VPN. Interface, <code>isConnected</code>, cờ VPN/Metered và mọi số liệu suy ra từ interface primary đều đóng băng ở giá trị cũ — trông vẫn hợp lý, nên không ai nhận ra. Chỉ hết khi khởi động lại app.</div>
+    <div class="impact" style="border-left:3px solid var(--sev2)"><b>Đính chính</b>Bản đầu tiên của mục này viết rằng card Network sẽ hiển thị “Offline” và MTU <code>0</code>. Sai. Khi viết test hồi quy tôi phát hiện <code>primaryInterface</code> và <code>isConnected</code> là biến instance <b>không bị xoá khi <code>stop()</code></b>, nên sau chu kỳ dừng/chạy chúng giữ giá trị cũ chứ không về <code>nil</code>. Triệu chứng thật là <b>đóng băng im lặng</b> — khó phát hiện hơn, mức nghiêm trọng không đổi. Chính đặc điểm này khiến một test hộp đen không bắt được lỗi.</div>
+    <p style="margin-top:14px"><b>Thêm một race:</b> <code>stop()</code> đặt <code>loop = nil</code> ngay, nhưng <code>await monitor.stop()</code> chạy bất đồng bộ <i>sau đó</i> — nếu <code>start()</code> xảy ra trước, monitor mới bị task cũ huỷ ngay khi vừa start.</p>
+  </article>
+
+  <article class="finding s1">
+    <div class="fhead">
+      <span class="fid">P1-2</span>
+      <h3>App xin quyền Location nhưng không trả lại gì</h3>
+      <div class="chips"><span class="chip">code sai chuẩn</span><span class="chip verified">✓ kiểm chứng bằng grep</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> NetworkCollector.swift:268 · Metrics.swift:293 · Permissions.swift:46‑53 · Info.plist · PermissionsView.swift:38‑41<br><b>Chuẩn</b> README — “The network name is deliberately absent… not a trade this app makes”</p>
+    <p>Grep toàn repo: <code>networkName</code> được <b>ghi vào đúng một lần</b> và <b>không đọc ra ở bất kỳ đâu</b> — không trong <code>Sources/MyMac</code>, không trong test. Trong khi đó app vẫn gọi <code>interface.ssid()</code> mỗi lần đọc radio (macOS ghi log truy cập vị trí cho lời gọi này), vẫn khai báo <code>NSLocationWhenInUseUsageDescription</code>, vẫn liệt kê Location trong Settings kèm mô tả “Showing the name of the Wi‑Fi network you are joined to”, và vẫn có nút <b>“Allow…”</b> dựng prompt hệ thống thật.</p>
+    <div class="impact"><b>Hậu quả</b>Người dùng cấp quyền vị trí → không có gì thay đổi trên màn hình. Tệ hơn, ngay bên dưới, card Wi‑Fi vẫn in dòng <i>“The network name needs Location access, which this app does not ask for.”</i> App tự mâu thuẫn với chính nó trong cùng một cửa sổ. Với một app mà toàn bộ luận điểm bán hàng là sự trung thực về quyền riêng tư, đây là lỗi đắt nhất trong danh sách.</div>
+  </article>
+
+  <article class="finding s1">
+    <div class="fhead">
+      <span class="fid">P1-3</span>
+      <h3>Repo chưa sẵn sàng để người khác clone</h3>
+      <div class="chips"><span class="chip">so với mục tiêu phát hành</span><span class="chip verified">✓ kiểm chứng</span></div>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Thiếu</th><th>Bằng chứng</th><th>Hậu quả</th></tr></thead>
+        <tbody>
+          <tr><td>Git repository</td><td><code>git status</code> → <code>fatal: not a git repository</code></td><td>Không thể publish. Không có lịch sử để lần audit sau đối chiếu.</td></tr>
+          <tr><td>LICENSE</td><td>không tồn tại</td><td>Không license = mặc định <b>all‑rights‑reserved</b>. Người clone không có quyền hợp pháp để dùng hay fork.</td></tr>
+          <tr><td>App icon</td><td><code>Resources/</code> chỉ có Info.plist; không có <code>CFBundleIconFile</code></td><td>Dock, Finder, ⌘Tab, Login Items đều hiện icon trắng mặc định. Đây là thứ đầu tiên người dùng nhìn thấy.</td></tr>
+          <tr><td>CI</td><td>không có <code>.github/</code></td><td>109 test chỉ chạy khi bạn nhớ chạy.</td></tr>
+          <tr><td>Universal binary</td><td><code>build-app.sh:16</code> build đúng kiến trúc host</td><td>Xem P2‑4.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section>
+  <h2>P2 — Sửa sớm</h2>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-1</span>
+      <h3>Thông báo lỗi “Open at login” bị chính nó xoá mất</h3>
+      <div class="chips"><span class="chip">code sai chuẩn</span><span class="chip read">○ đọc code</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> SettingsView.swift:158‑159, 189‑202<br><b>Chuẩn</b> README §Known limitations — “SMAppService will refuse and <b>the toggle reports why</b>”</p>
+<pre><code>Toggle("Open at login", isOn: $launchAtLogin)
+    .onChange(of: launchAtLogin) { _, enabled in updateLoginItem(enabled: enabled) }
+...
+} catch {
+    launchAtLogin = SMAppService.mainApp.status == .enabled   // ← ghi lại state
+    loginItemError = "macOS refused this change: ..."
+}</code></pre>
+    <p>Gán lại <code>launchAtLogin</code> trong khối <code>catch</code> <b>kích hoạt lại chính <code>onChange</code> đó</b>. Vòng hai gọi <code>unregister()</code>, thường thành công, và chạy vào nhánh <code>loginItemError = nil</code> — xoá đúng thông báo mà người dùng cần đọc.</p>
+    <div class="impact"><b>Hậu quả</b>Đây là đường đi <i>mặc định</i> cho mọi người clone repo, vì build script ký ad‑hoc và <code>SMAppService</code> từ chối bundle chưa ký Developer ID. Tính năng duy nhất chắc chắn thất bại với người dùng mới cũng là tính năng thất bại <b>trong im lặng</b>.</div>
+  </article>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-2</span>
+      <h3>Timeout của CommandRunner không bao giờ có thể nổ</h3>
+      <div class="chips"><span class="chip">code sai chuẩn</span><span class="chip verified">✓ kiểm chứng</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> CommandRunner.swift:75‑86</p>
+<pre><code>let data = try await Task.detached { try handle.readToEnd() ?? Data() }.value   // ← chặn tới EOF
+let deadline = Task { try await Task.sleep(for: timeout); ... }                 // ← tạo quá muộn
+process.waitUntilExit()</code></pre>
+    <p><code>readToEnd()</code> chặn cho đến khi tiến trình con đóng stdout — tức là cho đến khi nó thoát. Task <code>deadline</code> chỉ được tạo <i>sau</i> đó. Với một tiến trình treo (<code>brew</code> chờ khoá, <code>pip</code> chờ nhập liệu), timeout 180 giây <b>không tồn tại</b>.</p>
+    <div class="impact"><b>Hậu quả</b>Actor <code>UninstallService</code> bị chặn vô hạn — <code>waitUntilExit()</code> cũng chặn executor của actor. Nút Uninstall quay mãi, không có cách huỷ, đóng cửa sổ không cứu được. Chỉ còn Force Quit app.</div>
+  </article>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-3</span>
+      <h3>Sheet xác nhận hiển thị một lệnh không phải lệnh sẽ chạy</h3>
+      <div class="chips"><span class="chip">code sai chuẩn</span><span class="chip verified">✓ kiểm chứng</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> UninstallerView.swift:230‑231 vs InstalledItem.swift:139‑156<br><b>Chuẩn</b> README §The uninstaller — “<b>the exact command is shown</b> in the confirmation sheet before it runs”</p>
+    <p><code>ecosystem.rawValue</code> là tên case trong enum, <b>không phải tên chương trình</b>:</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Người dùng thấy</th><th>Thực tế chạy</th></tr></thead>
+        <tbody>
+          <tr><td><code>homebrew uninstall --formula wget</code></td><td><code>/opt/homebrew/bin/brew uninstall --formula wget</code></td></tr>
+          <tr><td><code>homebrewCask uninstall --cask docker</code></td><td><code>/opt/homebrew/bin/brew uninstall --cask docker</code></td></tr>
+          <tr><td><code>python uninstall --yes requests</code></td><td><code>/opt/homebrew/bin/pip3 uninstall --yes requests</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="impact"><b>Hậu quả</b>README hứa minh bạch tuyệt đối ở đúng chỗ nguy hiểm nhất — nơi duy nhất app chạy chương trình ngoài. Chuỗi hiển thị không copy‑paste được, không kiểm chứng được, và với <code>python</code> thì sai tên chương trình hoàn toàn.</div>
+  </article>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-4</span>
+      <h3>Build script chỉ build kiến trúc của máy host</h3>
+      <div class="chips"><span class="chip">code sai chuẩn</span><span class="chip verified">✓ đã build thử</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> Scripts/build-app.sh:16‑33</p>
+    <p>Nếu bạn phát hành sẵn một <code>.app</code> build từ máy Apple Silicon, nó không chạy trên Intel. Tin tốt: universal chỉ cần thêm cờ, không cần đổi một dòng Swift nào.</p>
+<pre><code>$ swift build -c release --product MyMac --arch arm64 --arch x86_64
+<span class="out">Build complete!</span>
+$ lipo -info .../MyMac
+<span class="out">Architectures in the fat file: ... are: x86_64 arm64</span></code></pre>
+    <p>Ghi chú phụ: script dùng <code>codesign --deep</code>, đã bị Apple deprecate và không đảm bảo ký đúng thứ tự bundle lồng nhau.</p>
+  </article>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-5</span>
+      <h3>Chỉ quét prefix package manager đầu tiên tìm thấy</h3>
+      <div class="chips"><span class="chip">code sai chuẩn</span><span class="chip verified">✓ kiểm chứng</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> PackageCatalog.swift:16 — <code>roots(home:).first(where: directoryExists)</code></p>
+    <p><code>roots(home:)</code> trả về <code>["/opt/homebrew", "/usr/local"]</code> cho Homebrew, tương tự cho npm và python. Chỉ root <b>đầu tiên</b> được đọc. Trigger rất phổ biến trên Apple Silicon: nhiều developer chạy song song <code>brew</code> arm64 ở <code>/opt/homebrew</code> <i>và</i> <code>brew</code> x86_64 qua Rosetta ở <code>/usr/local</code>.</p>
+    <div class="impact"><b>Hậu quả</b>Danh sách Uninstaller không đầy đủ, không có bất kỳ dấu hiệu nào báo là chưa đầy đủ. Người dùng kết luận package đã bị gỡ trong khi nó vẫn còn. Hệ quả kèm theo: <code>executables(home:)</code> luôn ưu tiên <code>/opt/homebrew/bin</code> bất kể package thuộc prefix nào — sửa việc quét mà không sửa việc chọn executable sẽ khiến app chạy brew arm64 để gỡ formula x86_64.</div>
+  </article>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-6</span>
+      <h3><code>defaultLaunchBehavior</code> chỉ tồn tại trong comment</h3>
+      <div class="chips"><span class="chip">code + tài liệu</span><span class="chip verified">✓ kiểm chứng</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> MyMacApp.swift:159‑170 (khai báo Window, <b>không</b> có modifier) · MyMacApp.swift:257‑267</p>
+<pre><code>guard #unavailable(macOS 15.0) else { return }
+// Fallback for macOS 14, which has no `defaultLaunchBehavior`.</code></pre>
+    <p>Grep toàn repo: <code>defaultLaunchBehavior</code> xuất hiện <b>duy nhất trong dòng comment đó</b>. Trên macOS 15+ (máy này chạy macOS 26.6.1), fallback bị bỏ qua và cũng không có modifier thay thế. Việc khai báo <code>MenuBarExtra</code> trước <code>Window</code> hiện che được vấn đề, nhưng đó là hành vi ngầm định của SwiftUI, không phải hợp đồng. Cửa sổ cũng thiếu <code>.restorationBehavior(.disabled)</code>.</p>
+  </article>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-7</span>
+      <h3>Throughput mạng bị đếm hai lần khi có VPN</h3>
+      <div class="chips"><span class="chip">code sai chuẩn</span><span class="chip verified">✓ kiểm chứng qua netstat</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> NetworkCollector.swift:129‑155, 192‑194</p>
+    <p><code>isMeasurable</code> chỉ loại <code>lo*</code>, <code>awdl*</code>, <code>llw*</code>. Mọi interface còn lại đều được cộng dồn. Một gói đi qua VPN được hệ điều hành đếm <b>hai lần</b>: một lần trên <code>utunN</code>, một lần trên <code>en0</code>. Bridge và Internet Sharing (<code>ap1</code>) cũng vậy. Trên máy này <code>netstat -ib</code> cho thấy <code>utun5</code> có lưu lượng thật song song với <code>en0</code>.</p>
+    <div class="impact"><b>Hậu quả</b>Khi bật VPN toàn phần, số Download/Upload trên Dashboard và Network gần gấp đôi thực tế, kéo theo sparkline và “Peak ↓/↑” cũng sai. Không có ghi chú nào cảnh báo.</div>
+  </article>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-8</span>
+      <h3><code>~/.m2/repository</code> bị xếp “safe” và xoá vĩnh viễn</h3>
+      <div class="chips"><span class="chip">cần quyết định</span><span class="chip verified">✓ kiểm chứng</span></div>
+    </div>
+    <p class="fmeta"><b>Code</b> CleanupCatalog.swift:124‑126 qua helper <code>developerCache</code>:25‑36 — helper hard‑code <code>tier: .safe, removal: .delete</code></p>
+    <p><code>.delete</code> nghĩa là <code>FileManager.removeItem</code> — không vào Thùng rác, không phục hồi được. Nhưng <code>~/.m2/repository</code> không thuần là cache tải về: <code>mvn install</code> đặt <b>artifact do chính người dùng build</b> vào đó — SNAPSHOT nội bộ, thư viện private không có trên Maven Central. Những file này không tải lại được. <code>~/.cache</code> có rủi ro tương tự nhưng thấp hơn.</p>
+    <div class="impact"><b>Hậu quả</b>Kết hợp với nút <b>“Select All Safe”</b>: hai cú click và một xác nhận là mất sạch.</div>
+  </article>
+
+  <article class="finding s2">
+    <div class="fhead">
+      <span class="fid">P2-9</span>
+      <h3>Tầng app không có test nào</h3>
+      <div class="chips"><span class="chip">so với tiêu chuẩn ngành</span><span class="chip verified">✓ kiểm chứng</span></div>
+    </div>
+    <p>109 test đều nằm trong <code>Tests/MyMacCoreTests</code>. <code>Sources/MyMac</code> (~2 900 dòng) có <b>0 test</b>: <code>MetricsStore</code>, <code>AppState</code>, <code>DockPolicy</code>, <code>CleanerModel</code>, <code>UninstallerModel</code>, <code>ProcessActionModel</code>, <code>MenuBarIcon</code>, <code>SettingsView</code>. Đây chính là Gốc C — P1‑1, P2‑1 và P2‑3 đều nằm trong vùng không được kiểm thử.</p>
+    <div class="impact"><b>Trở ngại &amp; hướng sửa</b>SwiftPM không cho test trực tiếp một <code>executableTarget</code>. Tách logic app thành target thư viện (mọi thứ trừ <code>@main</code>), để executable chỉ còn vài dòng, rồi thêm <code>MyMacAppTests</code>.</div>
+  </article>
+</section>
+
+<section>
+  <h2>P3 — Đáng sửa, không gấp</h2>
+  <p class="sec-lede">18 mục, tất cả đã tự mở lại code kiểm chứng. Nhóm theo chủ đề để dễ gom vào một lần sửa.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>Phát hiện</th><th>Vị trí</th><th>Hậu quả</th></tr></thead>
+      <tbody>
+        <tr><td class="tid">P3-1</td><td>Popover menu bar giữ scope <code>.detail</code> → mỗi lần mở là một lần đọc CoreWLAN, dù popover không hiển thị dữ liệu radio nào</td><td><code>MenuBarView.swift:29‑30</code></td><td>Lãng phí đúng chi phí mà README dành cả một đoạn để tránh (idle CPU 0.3 % → 3–6 %)</td></tr>
+        <tr><td class="tid">P3-2</td><td><code>activeProcessorCount</code> gọi bên trong vòng lặp per‑process</td><td><code>ProcessCollector.swift:92</code></td><td>~680 lời gọi sysctl mỗi 2 giây. Hoist ra ngoài là xong</td></tr>
+        <tr><td class="tid">P3-3</td><td><code>.task { model.load() }</code> chạy lại mỗi lần vào tab Uninstaller, không cache</td><td><code>UninstallerView.swift:90</code></td><td>Quét lại /Applications + đo lại mọi bundle mỗi lần chuyển tab</td></tr>
+        <tr><td class="tid">P3-4</td><td>Duplicate scanner gom nhóm theo kích thước <i>cấp phát</i> thay vì kích thước logic</td><td><code>DuplicateScanner.swift:73‑75</code></td><td>Hai file nội dung y hệt nhưng khác cách cấp phát (APFS compression, clone) không bao giờ được so sánh</td></tr>
+        <tr><td class="tid">P3-5</td><td>Font scale cố định <code>Font.system(size: 11)</code>…<code>15</code></td><td><code>Components.swift:11‑22</code></td><td>Bỏ qua hoàn toàn cài đặt Accessibility → Text Size của macOS</td></tr>
+        <tr><td class="tid">P3-6</td><td><code>Sparkline</code> và <code>CoreBars</code> đặt <code>accessibilityHidden(true)</code> không có phương án thay thế</td><td><code>Components.swift:150, 411</code></td><td>Với VoiceOver, dữ liệu per‑core biến mất hoàn toàn — không chỉ hình vẽ</td></tr>
+        <tr><td class="tid">P3-7</td><td><code>MenuActionRow</code> hard‑code chữ <code>.white</code> trên nền <code>accentColor</code></td><td><code>Components.swift:228‑232</code></td><td>Với accent color sáng (vàng, xanh lá — người dùng chọn được), chữ gần như không đọc được</td></tr>
+        <tr><td class="tid">P3-8</td><td>“Power reads zero on mains power” — thực tế hiển thị <code>—</code></td><td><code>BatteryCollector.swift:81‑85</code></td><td>Chữ ngay trong app mô tả sai hành vi của chính app</td></tr>
+        <tr><td class="tid">P3-9</td><td>Rule bị từ chối quyền mà không có <code>needsFullDiskAccess</code> thì <code>CleanupIssue</code> không hiển thị ở đâu</td><td><code>CleanupScanner.swift:81‑95</code></td><td>Nhóm hiện ra rỗng — người dùng hiểu “không có gì” thay vì “không đọc được”</td></tr>
+        <tr><td class="tid">P3-10</td><td><code>reclaimedBytes</code> cộng <code>item.size</code> từ kết quả scan cũ, không đo lại</td><td><code>CleanupEngine.swift:105</code></td><td>Con số “Reclaimed X” là ước lượng, được trình bày như sự thật</td></tr>
+        <tr><td class="tid">P3-11</td><td><code>NSRunningApplication.terminate()</code> trả <code>Bool</code>, bị bỏ qua</td><td><code>ProcessAttention.swift:40</code></td><td>Thất bại im lặng; may là vòng kiểm tra 3 giây bắt được</td></tr>
+        <tr><td class="tid">P3-12</td><td><code>if Task.isCancelled { break }</code> chỉ thoát vòng lặp trong</td><td><code>CleanupEngine.swift:61</code></td><td>Hoạt động đúng nhưng dễ hiểu nhầm</td></tr>
+        <tr><td class="tid">P3-13</td><td>Deep scan “Large Files” chồng lấn <code>~/.m2</code>, <code>~/.npm</code></td><td><code>LargeFileScanner.swift:16‑19</code></td><td>Cùng một gigabyte báo hai lần. Test overlap cố ý loại deep scan nên không bắt được</td></tr>
+        <tr><td class="tid">P3-14</td><td>Mỗi callback progress sinh một <code>Task { @MainActor }</code></td><td><code>CleanerModel.swift:93‑99</code></td><td>Vài chục–vài trăm Task/giây khi deep scan hoặc xoá hàng nghìn item</td></tr>
+        <tr><td class="tid">P3-15</td><td>Sidebar là 10 mục phẳng, trộn giám sát với công cụ và Settings</td><td><code>MyMacApp.swift:282‑286</code></td><td>Quy ước macOS là dùng <code>Section</code> có tiêu đề</td></tr>
+        <tr><td class="tid">P3-16</td><td><code>Table</code> Processes không có <code>sortOrder</code> — không click header cột để sắp xếp được</td><td><code>ProcessListView.swift:36‑97</code></td><td>Người dùng macOS click header trước tiên và không có gì xảy ra</td></tr>
+        <tr><td class="tid">P3-17</td><td>Checkbox nhóm trong Cleaner không có trạng thái mixed</td><td><code>CleanerModel.swift:127‑132</code></td><td>Nhóm chọn một phần trông y hệt nhóm không chọn gì</td></tr>
+        <tr><td class="tid">P3-18</td><td>Toàn bộ chuỗi hard‑code tiếng Anh, không có String Catalog</td><td>toàn bộ <code>Sources/MyMac</code></td><td>Không dịch được. Xem quyết định C‑5</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Trả lời câu hỏi Intel của bạn</h2>
+  <p class="sec-lede">Bạn nói: “Nếu hỗ trợ chip Intel thì càng tốt. Còn nếu chi phí, hiệu năng, rủi ro thì chỉ cần cho chip Apple.”</p>
+  <div class="callout ok">
+    <p class="verdict">Khuyến nghị: hỗ trợ Intel. Chi phí gần bằng không, và tôi đã kiểm chứng bằng cách build thật.</p>
+    <div class="tw" style="margin-top:14px">
+      <table>
+        <thead><tr><th>Hạng mục</th><th>Kết quả kiểm chứng</th></tr></thead>
+        <tbody>
+          <tr><td>Biên dịch x86_64</td><td><code>swift build -c release --arch x86_64</code> → <b>thành công, 0 warning</b></td></tr>
+          <tr><td>Universal binary</td><td><code>--arch arm64 --arch x86_64</code> → <b>thành công</b>; <code>lipo -info</code> xác nhận <code>x86_64 arm64</code></td></tr>
+          <tr><td>Sửa build script</td><td>Thêm hai cờ; <code>--show-bin-path</code> trả về <code>.build/apple/Products/Release</code> — vẫn hoạt động</td></tr>
+          <tr><td>Code đã tính đến Intel chưa</td><td><b>Có, và tính rất tốt.</b> <code>machTicksToNanoseconds</code> (Intel = 1.0, AS = 41.67) — chính là bug 24× mà README kể; <code>performanceCores/efficiencyCores</code> = 0 trên Intel và <code>coreSummary</code> xử lý đúng; pin dùng <code>NominalChargeCapacity</code> (AS) fallback <code>AppleRawMaxCapacity</code> (Intel); nhiệt độ pin bị bỏ đi <i>vì</i> đơn vị SMC khác nhau giữa hai nền tảng</td></tr>
+          <tr><td>Rủi ro còn lại</td><td>Chỉ có P2‑5 (dual brew prefix) — vốn là bug trên <b>cả hai</b> kiến trúc, không riêng Intel</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px"><b>Không có</b> khối code nào riêng cho Apple Silicon cần gỡ. Chi phí thực tế của việc hỗ trợ Intel là <b>một dòng trong <code>Scripts/build-app.sh</code></b> cộng với việc bạn không thể chạy thử. Nếu sau này thấy phiền, gỡ ra cũng chỉ là xoá lại hai cờ đó.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Đã kiểm tra và kết luận là đúng</h2>
+  <p class="sec-lede">Phần này quan trọng ngang phần phát hiện: nó cho biết đâu là vùng đã được soi, để lần audit sau không làm lại.</p>
+
+  <h3>PathSafety — mô hình an toàn xoá file</h3>
+  <p>Đọc từng dòng <code>PathSafety.swift:109‑165</code>, đối chiếu 12 test đang pass. Chuỗi kiểm tra đúng và đúng <b>thứ tự</b>:</p>
+  <ul class="ticks">
+    <li><code>lstat</code> (không phải <code>stat</code>) để bắt symlink mà không đi theo nó</li>
+    <li><code>realpath</code> trên <b>thư mục cha</b>, không phải trên chính item — chi tiết mà đa số implementation làm sai: resolve chính item sẽ che mất một thành phần đường dẫn bị symlink</li>
+    <li>Containment nghiêm ngặt theo <b>thành phần đường dẫn</b> — <code>/a/bc</code> không nằm trong <code>/a/b</code>, và một path không bao giờ là con của chính nó, nên “dọn <code>~/Library/Caches</code>” không thể xoá được chính nó</li>
+    <li>Tập protected <b>tự sinh từ catalog</b> — thêm rule mới tự động mở rộng bảo vệ</li>
+    <li>Engine <b>validate lại ngay trước khi xoá</b>, dùng root của rule làm allowlist chứ không dùng kết quả scan</li>
+    <li><code>requiredSuffix</code> thu hẹp <code>~/Library/Containers</code> về đúng <code>Data/Library/Caches</code></li>
+  </ul>
+
+  <h3 style="margin-top:26px">Dò Full Disk Access — đúng, đã kiểm chứng thực nghiệm</h3>
+  <p>Nghi ngờ ban đầu của tôi là <code>fileExists</code> sẽ trả <code>false</code> cho path bị TCC chặn, khiến nhánh “assume the best” báo nhầm là đã cấp quyền. Chạy thử trên máy này:</p>
+<pre><code>$ test -e ~/Library/.../com.apple.TCC/TCC.db   → <span class="out">EXISTS</span>
+$ head -c 1 ~/Library/.../com.apple.TCC/TCC.db → <span class="out">DENIED</span></code></pre>
+  <p><code>stat</code> được phép, <code>open</code> bị chặn. Vậy <code>FullDiskAccess.status()</code> đi đúng nhánh <code>.denied</code>, và nhánh “assume granted” chỉ chạy khi DB thật sự không tồn tại. Logic phát hiện từ chối quyền của scanner đúng vì cùng lý do.</p>
+
+  <h3 style="margin-top:26px">Độ chính xác số liệu, an toàn subprocess, chất lượng build</h3>
+  <ul class="ticks">
+    <li>Wraparound bộ đếm tick 32‑bit xử lý bằng <code>&amp;-</code> — đúng, có test riêng</li>
+    <li>Chuyển đổi mach timebase cho <code>proc_pid_rusage</code> — test in ra <code>SELF cpu=148%</code>, xác nhận không còn sai số 24×</li>
+    <li>Ngữ nghĩa bộ nhớ khớp Activity Monitor: <code>app = internal − purgeable</code>, <code>used = app + wired + compressed</code>, <code>cached</code> tách riêng</li>
+    <li>Áp suất bộ nhớ đọc từ <code>kern.memorystatus_vm_pressure_level</code> của kernel chứ không tự bịa tỷ lệ</li>
+    <li><code>host_processor_info</code> được <code>vm_deallocate</code> đúng; <code>mach_host_self()</code> cache một lần nên không rò rỉ port reference</li>
+    <li>Đúng <b>một</b> <code>Process()</code> trong toàn repo. Argument vector, không shell, PATH tối thiểu cố định. Tên package bị validate, ký tự đầu <code>-</code> bị từ chối. Không <code>sudo</code>, không privileged helper, không <code>osascript</code></li>
+    <li>Uninstaller: app của Apple bị loại hoàn toàn; bundle và leftover đi vào <b>Thùng rác</b>; leftover khớp theo bundle identifier. Xử lý Yarn v1 (đọc manifest thay vì node_modules đã hoisted) đúng và có test</li>
+    <li>0 warning ở cả debug lẫn release dưới Swift 6 strict concurrency · 109/109 test pass trong 14 giây · 0 TODO/FIXME/HACK</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Mâu thuẫn nội bộ trong README</h2>
+  <p class="sec-lede">Không phải bug code, nhưng là chuẩn đối chiếu tự mâu thuẫn — phải sửa trước khi lần audit sau dùng lại nó.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>Mâu thuẫn</th></tr></thead>
+      <tbody>
+        <tr><td class="tid">1</td><td><b>SSID.</b> §What each page shows: “The network name is deliberately absent… not a trade this app makes” ↔ §Settings and permissions: Location “Unlocks: The name of the joined Wi‑Fi network.” Hai đoạn nói ngược nhau (xem P1‑2)</td></tr>
+        <tr><td class="tid">2</td><td><b>Tổng lưu lượng mạng.</b> §What each page shows: “totals since boot <i>and</i> this session” (đúng — UI hiển thị cả hai) ↔ §Known limitations: “Network totals are per session”. Mục limitation đã lỗi thời</td></tr>
+        <tr><td class="tid">3</td><td><b>“fourteen places”.</b> <code>LeftoverScanner</code> thực tế có 12 đường dẫn theo bundle ID + Group Containers + 2 đường dẫn theo <b>tên hiển thị</b>. README nói leftover “found by bundle identifier”, bỏ qua đúng hai vị trí khớp theo tên — chính là sự khác biệt mà README nhấn mạnh</td></tr>
+        <tr><td class="tid">4</td><td><b>“Power reads zero on mains power”</b> — xem P3‑8</td></tr>
+        <tr><td class="tid">5</td><td><b><code>defaultLaunchBehavior</code></b> — comment mô tả một cơ chế không tồn tại. Xem P2‑6</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Cần bạn quyết</h2>
+  <p class="sec-lede">Đây là câu hỏi, không phải task. Nếu tôi tự quyết thì tôi đang đoán thay bạn.</p>
+
+  <div class="decision">
+    <span class="did">C‑1</span>
+    <div>
+      <p class="q">Location / SSID: làm cho ra hồn, hay gỡ sạch?</p>
+      <p class="why">Đây là quyết định về định vị sản phẩm, không phải kỹ thuật. Tôi nghiêng về <b>gỡ</b> — nó làm luận điểm “app này không xin gì cả” mạnh hơn, và khớp với README. Chặn P1‑2 và mâu thuẫn README #1.</p>
+    </div>
+  </div>
+  <div class="decision">
+    <span class="did">C‑2</span>
+    <div>
+      <p class="q"><code>~/.m2/repository</code> và <code>~/.cache</code> nên là <code>safe/delete</code> hay <code>review/trash</code>?</p>
+      <p class="why"><code>.delete</code> là vĩnh viễn. Maven chứa artifact tự build không tải lại được. Chặn P2‑8.</p>
+    </div>
+  </div>
+  <div class="decision">
+    <span class="did">C‑3</span>
+    <div>
+      <p class="q">“Select All Safe” + xoá vĩnh viễn có phải mức rủi ro bạn muốn?</p>
+      <p class="why">Hai click là mất sạch mọi thứ trong tier safe. Cân nhắc: mọi thứ vào Trash, trừ những rule mà chính điểm của nó là giải phóng dung lượng ngay (Trash, DerivedData).</p>
+    </div>
+  </div>
+  <div class="decision">
+    <span class="did">C‑4</span>
+    <div>
+      <p class="q">License nào?</p>
+      <p class="why">Không có license = không ai được phép dùng repo của bạn một cách hợp pháp. MIT hoặc Apache‑2.0 là mặc định hợp lý cho một utility.</p>
+    </div>
+  </div>
+  <div class="decision">
+    <span class="did">C‑5</span>
+    <div>
+      <p class="q">Có cần đa ngôn ngữ (tiếng Việt) không?</p>
+      <p class="why">Ảnh hưởng lớn tới khối lượng: khoảng 250 chuỗi cần chuyển sang String Catalog. Nếu chỉ nhắm developer quốc tế thì tiếng Anh là đủ. Nếu chọn có, nên làm <i>trước</i> vòng 4 để không phải sửa chuỗi hai lần.</p>
+    </div>
+  </div>
+  <div class="decision">
+    <span class="did">C‑6</span>
+    <div>
+      <p class="q">Icon: tự vẽ, hay dùng SF Symbol render thành <code>.icns</code>?</p>
+      <p class="why">Cần trước khi công khai (P1‑3), nhưng hình thức là lựa chọn của bạn. Có thể làm song song bất cứ lúc nào — nó không chặn gì cả.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Thứ tự đề xuất</h2>
+  <p class="sec-lede">Xếp theo chi phí và độ ràng buộc, không chỉ theo mức nghiêm trọng. Một dòng sửa mà nói dối người dùng mỗi ngày đi trước một refactor đúng nhưng đắt.</p>
+
+  <div class="round">
+    <div class="round-head"><h3>Vòng 1 — sửa nhanh, ảnh hưởng lớn</h3><span class="cost">≈ nửa ngày</span></div>
+    <ol class="steps">
+      <li><code>git init</code> + <code>LICENSE</code> — mở khoá mọi thứ còn lại, và cho lần audit sau một baseline <span class="ref">P1‑3</span></li>
+      <li><code>NetworkCollector.start()</code> tạo <code>NWPathMonitor</code> mới — <b>một dòng</b>, sửa bug nghiêm trọng nhất <span class="ref">P1‑1</span></li>
+      <li>Build script thêm <code>--arch arm64 --arch x86_64</code> — <b>một dòng</b>, xong chuyện Intel <span class="ref">P2‑4</span></li>
+      <li>Sheet uninstaller in đường dẫn executable đã phân giải <span class="ref">P2‑3</span></li>
+      <li>Hoist <code>activeProcessorCount</code> ra khỏi vòng lặp <span class="ref">P3‑2</span></li>
+      <li>Loại tunnel và bridge khỏi tổng throughput <span class="ref">P2‑7</span></li>
+    </ol>
+  </div>
+
+  <div class="round">
+    <div class="round-head"><h3>Vòng 2 — nhánh lỗi</h3><span class="cost">≈ một ngày</span></div>
+    <ol class="steps" start="7">
+      <li>Bỏ <code>onChange</code> cho login item; đưa hành động vào binding <span class="ref">P2‑1</span></li>
+      <li>Viết lại <code>CommandRunner.run</code>: deadline trước, đọc pipe bất đồng bộ, <code>terminationHandler</code> thay <code>waitUntilExit</code> <span class="ref">P2‑2</span></li>
+      <li>Quét <b>mọi</b> prefix package manager, và chọn executable theo prefix của package <span class="ref">P2‑5</span></li>
+      <li><code>.defaultLaunchBehavior(.suppressed)</code> + <code>.restorationBehavior(.disabled)</code> <span class="ref">P2‑6</span></li>
+    </ol>
+  </div>
+
+  <div class="round">
+    <div class="round-head"><h3>Vòng 3 — kết cấu</h3><span class="cost">≈ một tới hai ngày</span></div>
+    <ol class="steps" start="11">
+      <li>Tách <code>Sources/MyMac</code> thành library target + <code>@main</code> mỏng; thêm <code>MyMacAppTests</code> phủ đúng các bug ở vòng 1–2 <span class="ref">P2‑9</span></li>
+      <li>Đồng bộ README với code — 5 mâu thuẫn. Làm <b>sau</b> vòng 1–2 để chỉ phải viết lại một lần</li>
+      <li>GitHub Actions chạy <code>swift build</code> + <code>swift test</code> cho cả hai kiến trúc <span class="ref">P1‑3</span></li>
+    </ol>
+  </div>
+
+  <div class="round">
+    <div class="round-head"><h3>Vòng 4 — chất lượng hoàn thiện</h3><span class="cost">tuỳ mức đầu tư</span></div>
+    <ol class="steps" start="14">
+      <li>Accessibility: font scale động, tóm tắt VoiceOver cho chart và core bars, bỏ chữ trắng hard‑code <span class="ref">P3‑5, P3‑6, P3‑7</span></li>
+      <li>Sidebar có Section; Table sắp xếp bằng header cột; checkbox mixed‑state <span class="ref">P3‑15, P3‑16, P3‑17</span></li>
+      <li>Cache danh sách Uninstaller; throttle progress callback; scope riêng cho radio <span class="ref">P3‑1, P3‑3, P3‑14</span></li>
+      <li>Duplicate scanner gom theo kích thước logic <span class="ref">P3‑4</span></li>
+    </ol>
+  </div>
+
+  <div class="round">
+    <div class="round-head"><h3>Bị chặn bởi quyết định của bạn — làm cuối</h3><span class="cost">sau C‑1, C‑2, C‑5</span></div>
+    <ol class="steps" start="18">
+      <li>C‑1 (Location / SSID) chặn P1‑2 và mâu thuẫn README #1</li>
+      <li>C‑2 và C‑3 (phân loại rủi ro cleaner) chặn P2‑8</li>
+      <li>C‑5 (đa ngôn ngữ) chặn P3‑18</li>
+    </ol>
+  </div>
+</section>
+
+<footer class="foot">
+  <p>Ký hiệu xác thực · <b>✓ kiểm chứng</b> = tự mở lại code hoặc chạy lại thực nghiệm · <b>○ đọc code</b> = suy luận từ đọc, chưa chạy thực nghiệm độc lập.</p>
+  <p>Bản đầy đủ: <code>docs/audit/2026-08-20-mymac-full-audit.md</code></p>
+</footer>
+
+</div>
+</body>
+</html>

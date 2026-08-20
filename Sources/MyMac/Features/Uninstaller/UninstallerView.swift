@@ -163,7 +163,7 @@ private struct ConfirmSheet: View {
                     .keyboardShortcut(.cancelAction)
                 Button("Uninstall") { model.confirm() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(model.isRemoving)
+                    .disabled(model.isRemoving || !canUninstall)
             }
         }
         .padding(16)
@@ -219,22 +219,39 @@ private struct ConfirmSheet: View {
         }
     }
 
+    @ViewBuilder
     private func packageDetail(_ ecosystem: PackageEcosystem) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Running")
+            Text(model.uninstallCommand(for: item) == nil ? "Cannot Run" : "Running")
                 .font(.sectionLabel)
                 .foregroundStyle(.secondary)
-            // The exact command, verbatim. A package manager's own uninstall is
-            // the only way to keep its bookkeeping consistent, and the user is
-            // entitled to see precisely what will run.
-            Text(([ecosystem.rawValue] + ecosystem.uninstallArguments(for: item.name))
-                .joined(separator: " "))
-                .font(.system(size: 11, design: .monospaced))
-                .textSelection(.enabled)
-                .padding(7)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 5).fill(Color(nsColor: .quaternaryLabelColor)))
+
+            // The exact command, verbatim, with the executable resolved. A
+            // package manager's own uninstall is the only way to keep its
+            // bookkeeping consistent, and the user is entitled to see precisely
+            // what will run — which means the real program and its real path,
+            // not the name this app happens to file the manager under.
+            if let command = model.uninstallCommand(for: item) {
+                Text(command)
+                    .font(.system(size: 11, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color(nsColor: .quaternaryLabelColor)))
+            } else {
+                Label("\(ecosystem.title) is not installed anywhere this app looks, so it cannot remove this package. Removing the files by hand would leave \(ecosystem.title)'s own records inconsistent.",
+                      systemImage: "exclamationmark.triangle")
+                    .font(.note)
+                    .foregroundStyle(.orange)
+            }
         }
+    }
+
+    /// An application can always be moved to the Trash. A package can only be
+    /// removed by the manager that installed it, so with the tool missing there
+    /// is nothing to confirm.
+    private var canUninstall: Bool {
+        item.source == .application || model.uninstallCommand(for: item) != nil
     }
 }
 
