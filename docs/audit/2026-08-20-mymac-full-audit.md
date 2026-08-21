@@ -17,6 +17,7 @@
 | **2** | 2026-08-20 | P2-1 · P2-2 · P2-5 · P2-6 | 130 test |
 | **3** | 2026-08-21 | P2-9 (tách target + test tầng app) · P1-3 (CI) · P3-8 · đồng bộ README | 151 test |
 | **4** | 2026-08-21 | 15/18 mục P3: P3-1, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17 | 164 test |
+| **5** | 2026-08-21 | App icon (C-6) · badge memory pressure tự giải thích · hiệu suất bảng Processes | 168 test |
 
 **Còn lại:** P3-18 (đa ngôn ngữ, chặn bởi C-5), app icon, và 6+1 quyết định ở mục
 "Cần bạn quyết". Mâu thuẫn README #1 (Location/SSID) vẫn mở — nay đã được ghi rõ
@@ -30,11 +31,30 @@ rõ chúng "always sort last", còn test cũ lại khẳng định điều ngư�
 Đã sửa code theo prose và viết lại test — đây là **thay đổi hành vi** dựa trên phán
 đoán của tôi, xem phần tổng kết vòng 4 nếu bạn muốn đảo lại.
 
-**Chưa kiểm chứng được: kích hoạt cửa sổ.** Không đưa được MyMac lên frontmost bằng
-`activate`, `open -a` hay `set frontmost of process` — Terminal luôn giữ focus. Có thể
-là nhiễu từ chính công cụ đo, có thể là lỗi thật (lịch sử dự án từng ghi nhận "cửa sổ
-không phản hồi khi click thẳng vào title bar"). Cần bạn thử tay: mở popover trên menu
-bar → "Open Dashboard" → cửa sổ có nhảy lên trước không?
+**Nghi vấn kích hoạt cửa sổ — đã bác bỏ (2026-08-21).** Tôi từng ghi nhận rằng khi
+promote `.accessory` → `.regular` lần đầu, cửa sổ lên trước nhưng menu bar vẫn thuộc app
+cũ. **Sai.** Kết luận đó dựa trên `NSWorkspace.menuBarOwningApplication`, một chỉ số
+không phản ánh thứ người dùng thật sự nhìn thấy. Kiểm chứng bằng mắt: menu bar ghi
+"MyMac", đúng như phải vậy. Mọi thay đổi tôi từng thử cho việc này (`NSApp.activate()`,
+retry, `deactivate`+`activate`, `NSRunningApplication.activate`, hoãn tạo cửa sổ, delay
+sau promote) đều đã được **hoàn nguyên** — không dòng nào lọt vào repo. Bài học: ba phép
+đo gián tiếp mâu thuẫn nhau thì phải nhìn tận mắt, đừng chọn cái nào nghe thuận tai.
+
+**Lỗi công cụ đo trong phiên 2026-08-20/21.** Lệnh `log` bị một shell function chiếm chỗ,
+nên mọi câu "log không có lỗi gì" trong các vòng trước đều **vô nghĩa** — chưa hề đọc
+được log. Phải gọi `/usr/bin/log`. Mọi kết luận dựa trên log trước thời điểm này không
+có giá trị.
+
+**Hiệu suất bảng Processes (2026-08-21).** Người dùng báo bấm tiêu đề cột bị khựng. Hai
+giả thuyết đầu của tôi đều **sai và đã được đo để loại**: comparator qua KeyPath chỉ chậm
+hơn truy cập trực tiếp 9% (1,03 vs 0,95 ms), và toàn bộ việc sort 680 dòng chỉ ~1 ms.
+Profiler trên app đang chạy chỉ đúng thủ phạm: **75% phần main thread thật sự làm việc**
+nằm ở `AppKitOutlineTableCoordinator.update(to:with:diffRows:diffColumns:)` — SwiftUI
+đối chiếu lại từng dòng, chạy mỗi 2 giây với 713 dòng, và một cú bấm header là đúng việc
+đó với gần như mọi dòng phải di chuyển. Đã bỏ hai thứ thừa (danh sách bị sort hai lần
+mỗi lần vẽ; animation khi đảo thứ tự). Phần còn lại tỉ lệ thuận với số dòng và cần một
+quyết định sản phẩm — xem C-8.
+
 
 **Sai lệch so với báo cáo gốc:**
 - **P2-6** không sửa được theo cách đã đề xuất. `SceneBuilder` không có `buildEither`,
@@ -536,6 +556,8 @@ Không phải bug code, nhưng là chuẩn đối chiếu tự mâu thuẫn, nê
 | C-3 | **"Select All Safe" + xoá vĩnh viễn có phải mức rủi ro bạn muốn?** | Hai click là mất sạch mọi thứ trong tier safe. Cân nhắc: mọi thứ vào Trash trừ những rule mà chính điểm của nó là giải phóng dung lượng ngay (Trash, DerivedData). |
 | C-4 | **License nào?** | Không có license = không ai được phép dùng repo của bạn một cách hợp pháp. MIT/Apache-2.0 là mặc định hợp lý cho một utility. |
 | C-5 | **Có cần đa ngôn ngữ (tiếng Việt) không?** | Ảnh hưởng lớn tới khối lượng: ~250 chuỗi cần chuyển sang String Catalog. Nếu chỉ nhắm developer quốc tế thì tiếng Anh là đủ. |
+| C-7 | **Nâng deployment target lên macOS 15?** | Điều kiện để dùng `defaultLaunchBehavior` / `restorationBehavior` của SwiftUI thay cho cơ chế AppKit hiện tại. Đánh đổi: bỏ người dùng macOS 14. |
+| C-8 | **Giảm số dòng mặc định trong Processes?** | Chi phí đối chiếu của `Table` tỉ lệ thuận với số dòng (713 trên máy này). Hai hướng: mặc định chỉ hiện tiến trình của user (497, giống Activity Monitor), hoặc ẩn ~250 tiến trình mà kernel từ chối mô tả. Hướng thứ hai mâu thuẫn với lựa chọn trung thực đã ghi trong README. |
 | C-6 | **Icon: tự vẽ, hay dùng SF Symbol render thành `.icns`?** | Cần trước khi công khai (P1-3), nhưng hình thức là lựa chọn của bạn. |
 
 ---
