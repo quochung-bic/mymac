@@ -25,8 +25,8 @@ struct UninstallerView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 8)
 
-                Table(model.visibleItems) {
-                    TableColumn("Name") { item in
+                Table(model.visibleItems, sortOrder: $model.sortOrder) {
+                    TableColumn("Name", value: \.name) { item in
                         HStack(spacing: 7) {
                             Image(systemName: item.source.symbol)
                                 .imageScale(.small)
@@ -40,16 +40,15 @@ struct UninstallerView: View {
                             }
                         }
                     }
-                    TableColumn(model.scope == .applications ? "Location" : "Manager") { item in
-                        Text(model.scope == .applications
-                             ? item.location.deletingLastPathComponent().path
-                             : item.source.title)
+                    TableColumn(model.scope == .applications ? "Location" : "Manager",
+                                value: \.origin) { item in
+                        Text(item.origin)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.head)
                     }
                     .width(150)
-                    TableColumn("Size") { item in
+                    TableColumn("Size", value: \.sizeSortValue) { item in
                         Text(item.size.map(Format.bytes) ?? "…")
                             .monospacedDigit()
                             .foregroundStyle(item.size == nil ? .tertiary : .primary)
@@ -75,13 +74,6 @@ struct UninstallerView: View {
                 }
                 .help("Read installed software again")
                 .disabled(model.isLoading)
-            }
-            ToolbarItem {
-                Picker("Sort", selection: $model.order) {
-                    ForEach(UninstallerModel.Order.allCases) { order in
-                        Text(order.title).tag(order)
-                    }
-                }
             }
             // Only meaningful for packages; applications have one source.
             if model.scope == .packages {

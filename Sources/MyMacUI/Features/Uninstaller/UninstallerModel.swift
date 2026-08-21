@@ -35,25 +35,37 @@ final class UninstallerModel {
         }
     }
 
-    enum Order: String, CaseIterable, Identifiable {
+    /// The column a click on a header asks for. `origin` is the second column,
+    /// which shows a location for an application and a manager for a package.
+    enum Order {
         case name
+        case origin
         case size
-
-        var id: String { rawValue }
-        var title: String {
-            switch self {
-            case .name: "Name"
-            case .size: "Size"
-            }
-        }
     }
 
     var scope: Scope = .applications
+    /// Driven by the column headers, which is where anyone on a Mac clicks
+    /// first. `Table` reports the order and the model does the sorting, so
+    /// `visibleItems` stays the only thing that decides what goes where.
+    ///
     /// Alphabetical by default: it is the order that stays put while sizes are
     /// still being measured, and the one you can navigate by eye.
-    var order: Order = .name
+    var sortOrder = [KeyPathComparator(\InstalledItem.name, order: .forward)]
     var search = ""
     var sourceFilter: String?
+
+    /// Maps the table's order onto the columns this list knows how to sort by.
+    static func sorting(
+        for order: [KeyPathComparator<InstalledItem>]
+    ) -> (key: Order, ascending: Bool) {
+        guard let first = order.first else { return (.name, true) }
+        let ascending = first.order == .forward
+        switch first.keyPath {
+        case \InstalledItem.origin: return (.origin, ascending)
+        case \InstalledItem.sizeSortValue: return (.size, ascending)
+        default: return (.name, ascending)
+        }
+    }
 
     /// The item awaiting confirmation, with everything that would be removed.
     private(set) var pending: InstalledItem?
@@ -82,20 +94,47 @@ final class UninstallerModel {
     }
 
     var visibleItems: [InstalledItem] {
-        items
+        let sorting = Self.sorting(for: sortOrder)
+        return items
             .filter { matches(scope, $0) }
             .filter { scope == .applications || sourceFilter == nil || $0.source.title == sourceFilter }
             .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
+            .sorted { isOrdered($0, before: $1, by: sorting) }
+    }
+
+    /// A total order, so no row's position depends on which two rows happened
+    /// to be compared: every column falls back to the name, and the name is
+    /// unique enough to settle it.
+    private func isOrdered(
+        _ lhs: InstalledItem,
+        before rhs: InstalledItem,
+        by sorting: (key: Order, ascending: Bool)
+    ) -> Bool {
+        func byName(_ ascending: Bool = true) -> Bool {
+            let result = lhs.name.localizedStandardCompare(rhs.name)
+            guard result != .orderedSame else { return lhs.id < rhs.id }
+            return ascending ? result == .orderedAscending : result == .orderedDescending
+        }
+
+        switch sorting.key {
+        case .name:
+            return byName(sorting.ascending)
+        case .origin:
+            let result = lhs.origin.localizedStandardCompare(rhs.origin)
+            guard result != .orderedSame else { return byName() }
+            return sorting.ascending ? result == .orderedAscending : result == .orderedDescending
+        case .size:
             // Sorting by size waits until every size is in. Re-sorting as each
             // measurement lands would move rows out from under the pointer, and
             // every row here has a destructive button.
-            .sorted { lhs, rhs in
-                guard order == .size, !isSizing,
-                      let left = lhs.size, let right = rhs.size, left != right else {
-                    return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-                }
-                return left > right
-            }
+            guard !isSizing else { return byName() }
+            // An item nobody could measure has no place in a size order, so it
+            // goes last whichever way the column points.
+            guard let left = lhs.size else { return rhs.size == nil ? byName() : false }
+            guard let right = rhs.size else { return true }
+            guard left != right else { return byName() }
+            return sorting.ascending ? left < right : left > right
+        }
     }
 
     var selectedLeftoverBytes: Int64 {
@@ -236,4 +275,10 @@ final class UninstallerModel {
     }
 
     func dismissSummary() { summary = nil }
+
+    /// Exposed so the ordering can be tested against a fixture rather than
+    /// whatever software happens to be installed on the machine.
+    func replaceItemsForTesting(_ items: [InstalledItem]) {
+        self.items = items
+    }
 }

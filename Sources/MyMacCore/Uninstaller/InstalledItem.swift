@@ -51,6 +51,18 @@ public struct InstalledItem: Sendable, Identifiable, Hashable {
         self.bundleIdentifier = bundleIdentifier
         self.size = size
     }
+
+    /// What the second column shows: where an application lives, or which
+    /// manager installed a package. Held here so the column can be sorted by
+    /// the very string it displays.
+    public var origin: String {
+        source == .application ? location.deletingLastPathComponent().path : source.title
+    }
+
+    /// Stands in for `size` where a column needs a non-optional key path. The
+    /// list does not sort on this value — an unmeasured item belongs at the
+    /// bottom whichever way the column points, and no number expresses that.
+    public var sizeSortValue: Int64 { size ?? -1 }
 }
 
 /// The package managers this app knows how to read and to drive.
