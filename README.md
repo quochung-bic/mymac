@@ -3,16 +3,41 @@
 A native macOS system monitor and cleaner. Menu bar first, SwiftUI, no third-party
 dependencies, no Electron, no web view.
 
+## Install
+
+There is no installer and no release download. You build it:
+
+```bash
+git clone https://github.com/<owner>/mymac.git
+cd mymac
+./Scripts/install.sh          # builds, then puts MyMac.app in /Applications
+```
+
+`MYMAC_DEST=~/Applications ./Scripts/install.sh` installs for one user instead.
+
+Nothing was downloaded, so nothing is quarantined and Gatekeeper has nothing to
+warn about — an app you compiled yourself is not an app you fetched from the
+internet. What the ad-hoc signature does cost is spelled out below: **Open at
+Login** refuses, and **Full Disk Access** has to be granted again after every
+install, because macOS ties that grant to a code signature and an ad-hoc one
+differs from build to build.
+
+To remove it, quit the app and drag `MyMac.app` to the Trash. The only thing it
+leaves behind is `~/Library/Preferences/com.mymac.app.plist`.
+
 ## Build and run
 
 ```bash
 ./Scripts/build-app.sh release   # produces build/MyMac.app, universal
 open build/MyMac.app
 
-swift test                        # 151 tests
+swift test                        # 180 tests
 ```
 
-Requires Xcode 16+ / Swift 6. Deployment target is macOS 14.
+Requires Xcode 16+ / Swift 6. The command line tools on their own are enough for
+`MYMAC_UNIVERSAL=0`, but not for the universal build: two `--arch` flags send
+SwiftPM through Xcode's build system, and without Xcode installed it stops at
+`xcbuild executable ... does not exist`. Deployment target is macOS 14.
 
 The bundle is a **universal binary** — arm64 and x86_64 — so a copy built on
 one kind of Mac runs on the other. Nothing in the source is conditional on the
