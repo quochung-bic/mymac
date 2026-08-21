@@ -55,7 +55,11 @@ struct ProcessListView: View {
     }
 
     private var table: some View {
-        Table(visible, sortOrder: $sortOrder) {
+        // Computed once. It was read twice — by the table and by the footer's
+        // count — which meant sorting the whole list twice per redraw to
+        // produce a number that does not depend on the order at all.
+        let rows = visible
+        return Table(rows, sortOrder: $sortOrder) {
             TableColumn("Process", value: \.name) { process in
                 HStack(spacing: 6) {
                     Text(process.name).lineLimit(1)
@@ -101,7 +105,7 @@ struct ProcessListView: View {
         .searchable(text: $search, placement: .toolbar, prompt: "Filter processes")
         .safeAreaInset(edge: .bottom) {
             HStack {
-                Text("\(visible.count) processes")
+                Text("\(rows.count) processes")
                 Spacer()
                 // Stated plainly rather than hidden: the numbers are incomplete
                 // and the user deserves to know why.
@@ -117,6 +121,10 @@ struct ProcessListView: View {
         }
         .navigationTitle("Processes")
         .metricsScope(.processes, store: store)
+        // Clicking a column header moves almost every one of several hundred
+        // rows. Animating that reorder is work nobody asked for and nobody can
+        // follow, and it is what makes the click feel like a stall.
+        .transaction { $0.disablesAnimations = true }
     }
 }
 
