@@ -62,6 +62,20 @@ public enum MemoryPressure: Int, Sendable, Comparable, CaseIterable {
         case .high: "High"
         }
     }
+
+    /// What the level means for the machine, in terms of what is happening and
+    /// what to do — a one-word label is the kernel's vocabulary, not the
+    /// user's, and on its own it explains nothing.
+    public var explanation: String {
+        switch self {
+        case .low:
+            "Memory pressure: Low. The kernel is under no pressure to free memory. Nothing needs doing."
+        case .moderate:
+            "Memory pressure: Moderate. The kernel has started reclaiming memory — compressing pages, and swapping if it must. The machine is still keeping up; sustained swap activity is the sign that it has stopped."
+        case .high:
+            "Memory pressure: High. The kernel is struggling to find memory and the machine will feel slow. Quitting whatever is largest in the process list is the quickest relief."
+        }
+    }
 }
 
 /// macOS memory semantics, not "total minus free".

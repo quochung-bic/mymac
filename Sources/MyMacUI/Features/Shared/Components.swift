@@ -212,6 +212,11 @@ struct PressureBadge: View {
             // Never let the label compress: a truncated "Moder…" is worse than
             // a narrower meter beside it.
             .fixedSize()
+            // One word is the kernel's vocabulary. "Moderate" says nothing to
+            // anyone who has not read what the kernel means by it, so the badge
+            // explains itself on hover rather than sitting there as a riddle.
+            .help(pressure.explanation)
+            .accessibilityLabel(pressure.explanation)
     }
 
     private var color: Color {

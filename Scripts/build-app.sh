@@ -41,6 +41,14 @@ cp "$BIN_PATH/MyMac" "$APP/Contents/MacOS/MyMac"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+# The icon is drawn by Scripts/make-icon.swift rather than checked in as an
+# opaque binary, but it is committed so a plain build needs no extra step.
+if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
+    cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+else
+    echo "warning: Resources/AppIcon.icns is missing; run 'swift Scripts/make-icon.swift'" >&2
+fi
+
 # Ad-hoc signature. Enough for local use; replace with a Developer ID identity
 # to distribute, which is also what SMAppService (Open at Login) needs.
 # No --deep: Apple deprecated it, and there is nothing nested here to sign.

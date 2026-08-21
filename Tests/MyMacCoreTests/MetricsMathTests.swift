@@ -241,3 +241,30 @@ struct WiFiSignalTests {
         #expect(middling > 0.4 && middling < 0.6)
     }
 }
+
+@Suite("Memory pressure")
+struct MemoryPressureTests {
+    /// The raw values are the kernel's own: `kern.memorystatus_vm_pressure_level`
+    /// reports 1, 2 or 4, and inventing a scale here would mean showing
+    /// something other than what macOS is acting on.
+    @Test func levelsMatchTheKernelsOwnValues() {
+        #expect(MemoryPressure(rawValue: 1) == .low)
+        #expect(MemoryPressure(rawValue: 2) == .moderate)
+        #expect(MemoryPressure(rawValue: 4) == .high)
+        #expect(MemoryPressure(rawValue: 3) == nil, "3 is not a level the kernel reports")
+    }
+
+    /// A one-word badge is a riddle without this.
+    @Test func everyLevelExplainsItself() {
+        for level in MemoryPressure.allCases {
+            #expect(level.explanation.contains(level.label))
+            #expect(level.explanation.count > 40, "\(level.label) needs more than a restatement")
+        }
+        #expect(Set(MemoryPressure.allCases.map(\.explanation)).count == MemoryPressure.allCases.count)
+    }
+
+    @Test func levelsCompareInSeverityOrder() {
+        #expect(MemoryPressure.low < .moderate)
+        #expect(MemoryPressure.moderate < .high)
+    }
+}
