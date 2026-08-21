@@ -170,6 +170,7 @@ final class UninstallerModel {
         guard force || items.isEmpty else { return }
         isLoading = true
         work?.cancel()
+        AppIconCache.forget()
         let home = home
 
         work = Task(priority: .utility) {

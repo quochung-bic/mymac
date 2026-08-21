@@ -28,9 +28,7 @@ struct UninstallerView: View {
                 Table(model.visibleItems, sortOrder: $model.sortOrder) {
                     TableColumn("Name", value: \.name) { item in
                         HStack(spacing: 7) {
-                            Image(systemName: item.source.symbol)
-                                .imageScale(.small)
-                                .foregroundStyle(.secondary)
+                            InstalledItemIcon(item: item)
                             Text(item.name).lineLimit(1)
                             if let version = item.version {
                                 Text(version)
@@ -128,14 +126,20 @@ private struct ConfirmSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Uninstall \(item.name)?")
-                    .font(.headline)
-                Text(item.location.path)
-                    .font(.note)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+            HStack(spacing: 10) {
+                // The same icon the app has in the Dock, at the moment the
+                // user is being asked to throw it away: the surest way to see
+                // that the right thing is about to go.
+                InstalledItemIcon(item: item, size: 40)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Uninstall \(item.name)?")
+                        .font(.headline)
+                    Text(item.location.path)
+                        .font(.note)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
 
             if model.isRunning(item) {
