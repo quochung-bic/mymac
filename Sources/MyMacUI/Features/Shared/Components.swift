@@ -9,16 +9,30 @@ import SwiftUI
 /// the shrink floors on `minimumScaleFactor` are set so a scaled label can
 /// never fall below it either.
 extension Font {
+    /// The system UI font at an exact point size, registered against a text
+    /// style so it still moves with System Settings → Accessibility → Display →
+    /// Text Size. `Font.system(size:)` is frozen at whatever number is written
+    /// beside it, which meant the whole app ignored that setting.
+    ///
+    /// If the face ever stops resolving under this name, SwiftUI falls back to
+    /// the system font at the same size — today's behaviour exactly, so the
+    /// worst case is no scaling rather than a wrong typeface.
+    private static func ui(_ size: CGFloat, relativeTo style: TextStyle) -> Font {
+        .custom(".AppleSystemUIFont", size: size, relativeTo: style)
+    }
+
     /// Secondary labels: tile captions, units, explanatory notes.
-    static let note = Font.system(size: 11)
+    static let note = ui(11, relativeTo: .footnote)
     /// Section headers inside a card.
-    static let sectionLabel = Font.system(size: 11, weight: .semibold)
+    static let sectionLabel = ui(11, relativeTo: .footnote).weight(.semibold)
     /// Pill badges.
-    static let badge = Font.system(size: 11, weight: .medium)
-    /// Numbers a tile leads with.
+    static let badge = ui(11, relativeTo: .footnote).weight(.medium)
+    /// Numbers a tile leads with. Rounded, which `Font.custom` cannot carry, so
+    /// this one keeps the fixed system face — a tile value is a number rather
+    /// than reading matter, and `minimumScaleFactor` already governs it.
     static let tileValue = Font.system(size: 15, weight: .medium, design: .rounded)
     /// Axis-style labels, the smallest text in the app.
-    static let axisLabel = Font.system(size: 11)
+    static let axisLabel = ui(11, relativeTo: .caption)
 }
 
 /// A plain card. Native materials and system colours only, so the app follows
@@ -111,6 +125,10 @@ struct Sparkline: View {
     var tint: Color = .accentColor
     /// When nil the chart autoscales to its own maximum.
     var maximum: Double?
+    /// What VoiceOver should say. Left nil where the chart sits beside the
+    /// headline number it plots — announcing "43 percent" twice is worse than
+    /// once — and set where the trend is the only thing being shown.
+    var accessibilityDescription: String?
     /// Opacity of the gradient under the line. The default suits a value that
     /// spends most of its time near zero; a value that sits at 85 % fills the
     /// whole card, so those charts use a much fainter wash to stay a chart
@@ -147,7 +165,19 @@ struct Sparkline: View {
         // No `drawingGroup()`: `Canvas` already renders in one pass, and
         // forcing an extra offscreen buffer here made a whole window fail to
         // composite when the chart was given an unbounded height.
-        .accessibilityHidden(true)
+        .accessibilityElement()
+        .accessibilityHidden(accessibilityDescription == nil)
+        .accessibilityLabel(accessibilityDescription ?? "")
+        .accessibilityValue(trendDescription)
+    }
+
+    /// A line has no value a screen reader can read out, so it is described:
+    /// where it is now, and where it has been.
+    private var trendDescription: String {
+        guard let latest = values.last, let peak = values.max() else { return "" }
+        let scale = maximum ?? peak
+        guard scale > 0 else { return "" }
+        return "now \(Format.percent(latest / scale)) of peak, peak \(Format.percent(peak / scale))"
     }
 }
 
@@ -207,6 +237,11 @@ extension Color {
 /// A menu row that behaves like a real AppKit menu item: full-width highlight
 /// that follows the pointer, symbol on the left, shortcut on the right.
 struct MenuActionRow: View {
+    /// The colour AppKit uses for the text of a highlighted menu item. Hard
+    /// coding white was fine against the default blue accent and unreadable
+    /// against a light one — and the accent is the user's choice, not ours.
+    static let highlightedText = Color(nsColor: .selectedMenuItemTextColor)
+
     let title: String
     let symbol: String
     let shortcut: Character?
@@ -225,11 +260,11 @@ struct MenuActionRow: View {
                 if let shortcut {
                     Text("⌘\(String(shortcut).uppercased())")
                         .font(.note)
-                        .foregroundStyle(isHighlighted ? .white.opacity(0.7) : Color.secondary)
+                        .foregroundStyle(isHighlighted ? Self.highlightedText.opacity(0.7) : Color.secondary)
                 }
             }
             .font(.callout)
-            .foregroundStyle(isHighlighted ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .foregroundStyle(isHighlighted ? AnyShapeStyle(Self.highlightedText) : AnyShapeStyle(.primary))
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -375,6 +410,22 @@ struct CoreBars: View {
     let usage: [Double]
 
     var body: some View {
+        bars
+            // Per-core load appears nowhere else in the app, so hiding this
+            // outright removed the information rather than just the picture.
+            // One element per core, because "core 3 is pinned while the rest
+            // idle" is the whole point of the chart.
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Per-core load")
+            .accessibilityValue(summary)
+    }
+
+    private var summary: String {
+        guard let busiest = usage.max(), let quietest = usage.min() else { return "No data" }
+        return "\(usage.count) cores, busiest \(Format.percent(busiest)), quietest \(Format.percent(quietest))"
+    }
+
+    private var bars: some View {
         GeometryReader { geometry in
             let labelHeight: CGFloat = 13
             let barHeight = max(24, geometry.size.height - labelHeight - 5)
@@ -404,11 +455,13 @@ struct CoreBars: View {
                             .monospacedDigit()
                             .frame(height: labelHeight)
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Core \(index)")
+                    .accessibilityValue(Format.percent(value))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
-        .accessibilityHidden(true)
     }
 }
 

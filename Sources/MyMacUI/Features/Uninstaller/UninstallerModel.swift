@@ -122,8 +122,13 @@ final class UninstallerModel {
 
     // MARK: - Loading
 
-    func load() {
+    /// - Parameter force: re-read the disk even though a list is already held.
+    ///   Without this the list was rebuilt on every visit to the tab, which
+    ///   means walking /Applications and measuring every bundle again — seconds
+    ///   of disk work to arrive at the same answer.
+    func load(force: Bool = false) {
         guard !isLoading else { return }
+        guard force || items.isEmpty else { return }
         isLoading = true
         work?.cancel()
         let home = home

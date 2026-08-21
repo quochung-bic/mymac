@@ -121,10 +121,23 @@ struct ProcessSortingTests {
         #expect(sorted.map(\.name) == ["alpha", "beta", "Mango", "Zebra"])
     }
 
-    @Test func reversingKeepsUnreadableProcessesOutOfTheWayOfTheEye() {
+    /// The doc on `sort` says processes the kernel refused to describe always
+    /// sort last. They did not: reversing was done by flipping the whole array,
+    /// which flipped them to the top too, so asking for "quietest first" opened
+    /// with a screenful of dashes. The prose was right and the code was not.
+    @Test func reversingOrdersTheReadableRowsWithoutDisturbingTheRest() {
         let sorted = ProcessSorter.sort(processes, by: .cpu, reversed: true)
-        #expect(sorted.first?.name == "Mango")
-        #expect(sorted.last?.name == "alpha")
+        #expect(sorted.map(\.name) == ["Zebra", "beta", "alpha", "Mango"])
+        #expect(sorted.last?.name == "Mango", "no figure means last, either direction")
+    }
+
+    @Test func reversingByNameStillReadsZToA() {
+        let sorted = ProcessSorter.sort(processes, by: .name, reversed: true)
+        #expect(sorted.map(\.name) == ["Zebra", "Mango", "beta", "alpha"])
+    }
+
+    @Test func reversingByPidCountsDown() {
+        #expect(ProcessSorter.sort(processes, by: .pid, reversed: true).map(\.id) == [4, 3, 2, 1])
     }
 
     @Test func sortIsStableForEqualValues() {

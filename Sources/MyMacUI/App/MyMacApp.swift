@@ -38,6 +38,35 @@ enum MainSection: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+extension MainSection {
+    /// Watching the machine, changing it, and configuring the app are three
+    /// different intentions. Ten flat rows read as a list; three named groups
+    /// read as a structure, which is also what every native app with a sidebar
+    /// does. The order inside each group is unchanged, so ⌘1…⌘0 still land
+    /// where they always did.
+    enum Group: String, CaseIterable, Identifiable {
+        case monitor, tools, app
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .monitor: "Monitor"
+            case .tools: "Tools"
+            case .app: "App"
+            }
+        }
+
+        var sections: [MainSection] {
+            switch self {
+            case .monitor: [.dashboard, .cpu, .memory, .storage, .network, .battery, .processes]
+            case .tools: [.cleaner, .uninstaller]
+            case .app: [.settings]
+            }
+        }
+    }
+}
+
 enum MainWindow {
     static let identifier = "main"
 }
@@ -310,8 +339,14 @@ struct MainWindowView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(MainSection.allCases, selection: $section) { item in
-                Label(item.title, systemImage: item.symbol).tag(item)
+            List(selection: $section) {
+                ForEach(MainSection.Group.allCases) { group in
+                    Section(group.title) {
+                        ForEach(group.sections) { item in
+                            Label(item.title, systemImage: item.symbol).tag(item)
+                        }
+                    }
+                }
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 240)
         } detail: {

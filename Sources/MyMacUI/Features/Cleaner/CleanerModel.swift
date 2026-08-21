@@ -87,9 +87,13 @@ final class CleanerModel {
         rulesByID = Dictionary(uniqueKeysWithValues: rules.map { ($0.id, $0) })
 
         let scanner = CleanupScanner(home: home, inventory: WorkspaceApplicationInventory())
+        // A deep scan reports every few hundred files. Hopping to the main
+        // actor for each one buys nothing a screen can show.
+        let throttle = ProgressThrottle()
         work = Task(priority: .utility) {
             do {
                 let results = try await scanner.scan(rules: rules) { progress in
+                    guard throttle.shouldPublish() else { return }
                     Task { @MainActor in
                         self.phase = .scanning(.init(fraction: progress.fraction,
                                                      title: progress.currentTitle,
@@ -163,8 +167,10 @@ final class CleanerModel {
 
         phase = .cleaning(fraction: 0, label: "")
         let engine = CleanupEngine(home: home)
+        let throttle = ProgressThrottle()
         work = Task(priority: .userInitiated) {
             let outcome = await engine.perform(requests) { fraction, label in
+                guard throttle.shouldPublish() else { return }
                 Task { @MainActor in
                     self.phase = .cleaning(fraction: fraction, label: label)
                 }

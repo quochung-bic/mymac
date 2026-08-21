@@ -18,6 +18,15 @@ final class MetricsStore {
         case detail
         /// A visible process list.
         case processes
+        /// Something on screen is showing Wi-Fi radio detail.
+        ///
+        /// Separate from `.detail` because reading the radio is by far the most
+        /// expensive part of a sample — CoreWLAN takes it from 1.1 ms to 4.8 ms
+        /// and keeps a chattering XPC connection to `airportd` alive. Only the
+        /// Network page shows those figures, but the menu bar popover was
+        /// taking `.detail` too, so opening it paid for a reading nothing in it
+        /// displays.
+        case radio
     }
 
     private(set) var cpu: CPUStats?
@@ -113,7 +122,7 @@ final class MetricsStore {
     private func tick() async {
         // Wi-Fi radio detail is only shown on the Network page, and reading it
         // is the most expensive part of a sample.
-        let fast = await monitor.sampleFast(includeRadio: scopes[.detail, default: 0] > 0)
+        let fast = await monitor.sampleFast(includeRadio: scopes[.radio, default: 0] > 0)
         apply(fast)
 
         if slowTickCounter % slowInterval == 0 {

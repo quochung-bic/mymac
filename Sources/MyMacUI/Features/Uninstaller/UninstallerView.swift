@@ -68,6 +68,15 @@ struct UninstallerView: View {
         }
         .toolbar {
             ToolbarItem {
+                Button {
+                    model.load(force: true)
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .help("Read installed software again")
+                .disabled(model.isLoading)
+            }
+            ToolbarItem {
                 Picker("Sort", selection: $model.order) {
                     ForEach(UninstallerModel.Order.allCases) { order in
                         Text(order.title).tag(order)

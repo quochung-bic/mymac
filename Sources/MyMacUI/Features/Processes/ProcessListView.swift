@@ -4,15 +4,37 @@ import SwiftUI
 struct ProcessListView: View {
     @Environment(MetricsStore.self) private var store
     @Environment(ProcessActionModel.self) private var actions
-    @State private var sortKey: ProcessSortKey = .cpu
-    @State private var reversed = false
+    /// Driven by the column headers, which is where anyone on a Mac clicks
+    /// first. `Table` reports the order and this view does the sorting, so
+    /// `ProcessSorter` stays the only thing that decides what goes where.
+    @State private var sortOrder = [KeyPathComparator(\ProcessSample.cpuSortValue, order: .reverse)]
     @State private var search = ""
 
     private var visible: [ProcessSample] {
         let filtered = search.isEmpty
             ? store.processes
             : store.processes.filter { $0.name.localizedCaseInsensitiveContains(search) }
-        return ProcessSorter.sort(filtered, by: sortKey, reversed: reversed)
+        let sorting = Self.sorting(for: sortOrder)
+        return ProcessSorter.sort(filtered, by: sorting.key, reversed: sorting.reversed)
+    }
+
+    /// Maps the table's order onto `ProcessSorter`'s.
+    ///
+    /// Each key has a natural direction — biggest offender first for CPU and
+    /// memory, alphabetical for a name — and `reversed` flips it, so which of
+    /// the two the header is asking for depends on the column.
+    static func sorting(
+        for order: [KeyPathComparator<ProcessSample>]
+    ) -> (key: ProcessSortKey, reversed: Bool) {
+        guard let first = order.first else { return (.cpu, false) }
+        let ascending = first.order == .forward
+        switch first.keyPath {
+        case \ProcessSample.cpuSortValue: return (.cpu, ascending)
+        case \ProcessSample.memorySortValue: return (.memory, ascending)
+        case \ProcessSample.name: return (.name, !ascending)
+        case \ProcessSample.id: return (.pid, !ascending)
+        default: return (.cpu, ascending)
+        }
     }
 
     var body: some View {
@@ -33,8 +55,8 @@ struct ProcessListView: View {
     }
 
     private var table: some View {
-        Table(visible) {
-            TableColumn("Process") { process in
+        Table(visible, sortOrder: $sortOrder) {
+            TableColumn("Process", value: \.name) { process in
                 HStack(spacing: 6) {
                     Text(process.name).lineLimit(1)
                     if process.kind == .system {
@@ -46,21 +68,21 @@ struct ProcessListView: View {
             }
             // Numbers are right-aligned so their digits line up down the
             // column; a PID is an identifier, so it carries no separators.
-            TableColumn("PID") { process in
+            TableColumn("PID", value: \.id) { process in
                 Text(verbatim: "\(process.pid)")
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .width(62)
-            TableColumn("CPU") { process in
+            TableColumn("CPU", value: \.cpuSortValue) { process in
                 Text(process.cpuUsage.map(Format.processCPU) ?? "—")
                     .monospacedDigit()
                     .foregroundStyle(process.cpuUsage == nil ? .tertiary : .primary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .width(66)
-            TableColumn("Memory") { process in
+            TableColumn("Memory", value: \.memorySortValue) { process in
                 Text(process.memoryFootprint.map(Format.bytes) ?? "—")
                     .monospacedDigit()
                     .foregroundStyle(process.memoryFootprint == nil ? .tertiary : .primary)
@@ -77,24 +99,6 @@ struct ProcessListView: View {
             .width(34)
         }
         .searchable(text: $search, placement: .toolbar, prompt: "Filter processes")
-        .toolbar {
-            ToolbarItem {
-                Picker("Sort by", selection: $sortKey) {
-                    ForEach(ProcessSortKey.allCases) { key in
-                        Text(key.label).tag(key)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-            ToolbarItem {
-                Button {
-                    reversed.toggle()
-                } label: {
-                    Label("Reverse", systemImage: reversed ? "arrow.up" : "arrow.down")
-                }
-                .help("Reverse the sort order")
-            }
-        }
         .safeAreaInset(edge: .bottom) {
             HStack {
                 Text("\(visible.count) processes")

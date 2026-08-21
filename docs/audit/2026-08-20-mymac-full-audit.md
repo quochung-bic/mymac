@@ -16,10 +16,25 @@
 | **1** | 2026-08-20 | P1-1 · P1-3 (git + LICENSE) · P2-3 · P2-4 · P2-7 · P3-2 | 120 test |
 | **2** | 2026-08-20 | P2-1 · P2-2 · P2-5 · P2-6 | 130 test |
 | **3** | 2026-08-21 | P2-9 (tách target + test tầng app) · P1-3 (CI) · P3-8 · đồng bộ README | 151 test |
+| **4** | 2026-08-21 | 15/18 mục P3: P3-1, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17 | 164 test |
 
-**Còn lại:** toàn bộ P3 trừ P3-2 và P3-8 (vòng 4), app icon, và 6 quyết định ở mục
+**Còn lại:** P3-18 (đa ngôn ngữ, chặn bởi C-5), app icon, và 6+1 quyết định ở mục
 "Cần bạn quyết". Mâu thuẫn README #1 (Location/SSID) vẫn mở — nay đã được ghi rõ
 trong README như một quyết định chưa chốt thay vì để hai đoạn nói ngược nhau.
+
+**Phát hiện mới trong lúc sửa (P3-19).** Viết test cho P3-16 làm lộ ra một lỗi có sẵn
+trong `ProcessSorter.sort`: `reversed` được cài bằng cách đảo cả mảng, nên các tiến
+trình kernel từ chối mô tả bị lật lên **đầu** danh sách. Doc comment ngay trên hàm nói
+rõ chúng "always sort last", còn test cũ lại khẳng định điều ngược lại và gọi đó là
+"out of the way of the eye". Prose đúng, code sai, và test đã hợp thức hoá cái sai.
+Đã sửa code theo prose và viết lại test — đây là **thay đổi hành vi** dựa trên phán
+đoán của tôi, xem phần tổng kết vòng 4 nếu bạn muốn đảo lại.
+
+**Chưa kiểm chứng được: kích hoạt cửa sổ.** Không đưa được MyMac lên frontmost bằng
+`activate`, `open -a` hay `set frontmost of process` — Terminal luôn giữ focus. Có thể
+là nhiễu từ chính công cụ đo, có thể là lỗi thật (lịch sử dự án từng ghi nhận "cửa sổ
+không phản hồi khi click thẳng vào title bar"). Cần bạn thử tay: mở popover trên menu
+bar → "Open Dashboard" → cửa sổ có nhảy lên trước không?
 
 **Sai lệch so với báo cáo gốc:**
 - **P2-6** không sửa được theo cách đã đề xuất. `SceneBuilder` không có `buildEither`,

@@ -424,6 +424,16 @@ public struct ProcessSample: Sendable, Equatable, Identifiable {
 
     public var pid: pid_t { id }
 
+    /// Sort keys for a table's column headers.
+    ///
+    /// `Table` needs one `Comparable` value per sortable column, and `Optional`
+    /// is not `Comparable`. These exist only to make the headers clickable: the
+    /// ordering itself still goes through `ProcessSorter`, which is what keeps
+    /// processes the kernel refused to describe at the bottom whichever way the
+    /// column points.
+    public var cpuSortValue: Double { cpuUsage ?? -1 }
+    public var memorySortValue: UInt64 { memoryFootprint ?? 0 }
+
     public init(id: pid_t, name: String, kind: Kind, cpuUsage: Double?,
                 memoryFootprint: UInt64?, isResponding: Bool) {
         self.id = id
@@ -455,27 +465,37 @@ public enum ProcessSorter {
     /// always sort last, so an unreadable root daemon never squats at the top.
     public static func sort(_ processes: [ProcessSample], by key: ProcessSortKey,
                             reversed: Bool = false) -> [ProcessSample] {
-        let sorted = processes.sorted { lhs, rhs in
+        processes.sorted { lhs, rhs in
             switch key {
             case .cpu:
-                let a = lhs.cpuUsage, b = rhs.cpuUsage
-                if a == nil && b == nil { return nameOrder(lhs, rhs) }
-                guard let a else { return false }
-                guard let b else { return true }
-                return a == b ? nameOrder(lhs, rhs) : a > b
+                return unreadableLast(lhs, rhs, \.cpuUsage, reversed: reversed)
             case .memory:
-                let a = lhs.memoryFootprint, b = rhs.memoryFootprint
-                if a == nil && b == nil { return nameOrder(lhs, rhs) }
-                guard let a else { return false }
-                guard let b else { return true }
-                return a == b ? nameOrder(lhs, rhs) : a > b
+                return unreadableLast(lhs, rhs, \.memoryFootprint, reversed: reversed)
             case .name:
-                return nameOrder(lhs, rhs)
+                return reversed ? nameOrder(rhs, lhs) : nameOrder(lhs, rhs)
             case .pid:
-                return lhs.id < rhs.id
+                return reversed ? lhs.id > rhs.id : lhs.id < rhs.id
             }
         }
-        return reversed ? sorted.reversed() : sorted
+    }
+
+    /// Orders on an optional figure, keeping the rows that have none at the
+    /// bottom **whichever way the readable ones are pointing**.
+    ///
+    /// This used to be done by sorting once and reversing the whole array,
+    /// which also flipped the unreadable rows to the top — so asking for
+    /// "quietest first" opened with a screenful of dashes. The doc above says
+    /// they always sort last; now they do.
+    private static func unreadableLast<Value: Comparable>(
+        _ lhs: ProcessSample, _ rhs: ProcessSample,
+        _ figure: KeyPath<ProcessSample, Value?>, reversed: Bool
+    ) -> Bool {
+        let a = lhs[keyPath: figure], b = rhs[keyPath: figure]
+        if a == nil && b == nil { return nameOrder(lhs, rhs) }
+        guard let a else { return false }
+        guard let b else { return true }
+        if a == b { return nameOrder(lhs, rhs) }
+        return reversed ? a < b : a > b
     }
 
     private static func nameOrder(_ lhs: ProcessSample, _ rhs: ProcessSample) -> Bool {

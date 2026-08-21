@@ -56,9 +56,18 @@ enum DuplicateScanner {
         return items
     }
 
+    /// Groups on the **logical** size, not the allocated one.
+    ///
+    /// Two files can hold byte-for-byte identical content and still occupy
+    /// different amounts of disk — one compressed by APFS, one cloned, one
+    /// sparse. Keying the first pass on allocated size put those in separate
+    /// groups, so they were never compared and the duplicate was never found.
+    /// What is *reported* stays the allocated size, because that is what
+    /// removing the file actually gives back.
     private static func collectCandidates(root: URL, minimumSize: Int64,
                                           into bySize: inout [Int64: [URL]]) throws {
-        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .totalFileAllocatedSizeKey]
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
+                                         .fileSizeKey, .totalFileAllocatedSizeKey]
         guard let enumerator = FileManager.default.enumerator(
             at: root, includingPropertiesForKeys: Array(keys),
             options: [.skipsPackageDescendants], errorHandler: { _, _ in true }
@@ -70,7 +79,7 @@ enum DuplicateScanner {
             if counter % 512 == 0 { try Task.checkCancellation() }
             guard let values = try? url.resourceValues(forKeys: keys),
                   values.isSymbolicLink != true, values.isRegularFile == true else { continue }
-            let size = Int64(values.totalFileAllocatedSize ?? 0)
+            let size = Int64(values.fileSize ?? 0)
             guard size >= minimumSize else { continue }
             bySize[size, default: []].append(url)
         }

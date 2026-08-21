@@ -56,9 +56,11 @@ public actor CleanupEngine {
         // Resolved once for the whole run rather than per item.
         let context = PathSafety.Context(home: home)
 
-        for request in requests {
+        // Labelled: breaking only the inner loop left the outer one walking
+        // every remaining request to break out of each in turn.
+        requests: for request in requests {
             for item in request.items {
-                if Task.isCancelled { break }
+                if Task.isCancelled { break requests }
                 completed += 1
                 progress(Double(completed) / Double(total), item.name)
 

@@ -123,12 +123,15 @@ private struct GroupRow: View {
                         .imageScale(.small)
                         .foregroundStyle(.secondary)
                 } else {
-                    Toggle(isOn: Binding(
-                        get: { model.selectionState(for: group) ?? false },
-                        set: { model.setSelection($0, for: group) }
-                    )) { EmptyView() }
-                    .toggleStyle(.checkbox)
-                    .disabled(group.items.isEmpty)
+                    // SwiftUI's `Toggle` has two states, and mapping "some of
+                    // this group" onto the unchecked one made a part-selected
+                    // group look untouched. Drawn instead, so all three states
+                    // are distinguishable.
+                    GroupCheckbox(state: model.selectionState(for: group),
+                                  isEnabled: !group.items.isEmpty,
+                                  title: group.title) {
+                        model.setSelection(model.selectionState(for: group) != true, for: group)
+                    }
                 }
 
                 Button(action: toggleExpansion) {
@@ -168,6 +171,16 @@ private struct GroupRow: View {
                 Label("Needs Full Disk Access to read this location.", systemImage: "lock")
                     .font(.note)
                     .foregroundStyle(.orange)
+            } else if !group.isAdvisory {
+                // Anything the scan could not do. Without this an unreadable
+                // location produced an empty group indistinguishable from a
+                // location with nothing in it — "nothing to clean" when the
+                // truth was "could not look".
+                ForEach(group.issues) { issue in
+                    Label(issue.reason, systemImage: "exclamationmark.triangle")
+                        .font(.note)
+                        .foregroundStyle(.orange)
+                }
             }
         }
         .padding(.vertical, 3)
@@ -294,11 +307,20 @@ private struct SummaryView: View {
             Image(systemName: summary.failures.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
                 .font(.system(size: 36))
                 .foregroundStyle(summary.failures.isEmpty ? Color.secondary : Color.orange)
-            Text("Reclaimed \(Format.bytes(summary.reclaimed))")
+            // "About": the figure is the sum of the sizes measured during the
+            // scan, and a cache can grow or shrink in the minutes between the
+            // scan and the confirmation. Measuring again would mean walking
+            // every tree a second time to refine a number nobody acts on.
+            Text("Reclaimed about \(Format.bytes(summary.reclaimed))")
                 .font(.title2.weight(.medium))
             Text("\(summary.removed) deleted · \(summary.trashed) moved to Trash")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            if summary.trashed > 0 {
+                Text("Items in the Trash still occupy disk space until it is emptied.")
+                    .font(.note)
+                    .foregroundStyle(.secondary)
+            }
 
             if summary.rejected > 0 {
                 Text("\(summary.rejected) item\(summary.rejected == 1 ? "" : "s") were skipped by the safety check.")
@@ -329,5 +351,48 @@ private struct SummaryView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// A checkbox with three states: none, some, all.
+///
+/// `Toggle` has two, so a group with half its items ticked was drawn exactly
+/// like a group with none — the user had no way to tell without expanding it.
+private struct GroupCheckbox: View {
+    /// `nil` means a partial selection.
+    let state: Bool?
+    let isEnabled: Bool
+    let title: String
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            Image(systemName: symbol)
+                .imageScale(.large)
+                .foregroundStyle(state == false ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(title)
+        .accessibilityValue(description)
+        .accessibilityAddTraits(state == true ? [.isSelected] : [])
+        .help(description)
+    }
+
+    private var symbol: String {
+        switch state {
+        case true?: "checkmark.square.fill"
+        case false?: "square"
+        case nil: "minus.square.fill"
+        }
+    }
+
+    private var description: String {
+        switch state {
+        case true?: "All items selected"
+        case false?: "Nothing selected"
+        case nil: "Some items selected"
+        }
     }
 }

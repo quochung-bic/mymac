@@ -13,9 +13,17 @@ enum LargeFileScanner {
     /// dependency and build directories hold many small files, and a repository
     /// database is not something to offer for deletion. Skipping them turns a
     /// multi-minute crawl of a developer's home folder into seconds.
+    /// Two reasons a directory is here: it holds many small files and cannot
+    /// contain a single multi-gigabyte one, or a dedicated cleanup rule already
+    /// owns it — and a folder reported by two rules invites the user to
+    /// "reclaim" the same gigabyte twice.
+    ///
+    /// `CatalogCoverageTests` enforces the second half: every developer-cache
+    /// rule must be unreachable from a deep scan.
     static let skippedDirectoryNames: Set<String> = [
         "node_modules", ".git", ".svn", ".hg", "Pods", ".venv", "venv",
         ".gradle", ".cargo", ".rustup", ".terraform", "vendor",
+        ".m2", ".npm", ".bun",
     ]
 
     static func scan(root: URL, minimumSize: Int64, excluded: Set<String>,

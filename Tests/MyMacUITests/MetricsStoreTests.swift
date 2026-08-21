@@ -71,6 +71,23 @@ struct MetricsStoreScopeTests {
         #expect(store.alerts.isEmpty)
     }
 
+    /// Reading the Wi-Fi radio is by far the most expensive part of a sample,
+    /// and only the Network page shows it. It has its own scope so opening the
+    /// menu bar popover — which takes `.detail` and displays no radio detail at
+    /// all — stops paying for it.
+    @Test func theRadioHasItsOwnScopeSeparateFromDetail() async {
+        let store = MetricsStore()
+        store.retain(.detail)
+        #expect(store.isRunning)
+        store.release(.detail)
+        #expect(store.isRunning == false)
+
+        store.retain(.radio)
+        #expect(store.isRunning, "the radio scope keeps sampling alive on its own")
+        store.release(.radio)
+        #expect(store.isRunning == false)
+    }
+
     @Test func theMenuBarScopeFollowsTheSettingRatherThanTheView() async {
         let store = MetricsStore()
 

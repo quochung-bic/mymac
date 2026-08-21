@@ -34,11 +34,19 @@ final class ProcessActionModel {
         pending = nil
 
         // A GUI app is asked through AppKit first: that lets it save open
-        // documents, which a bare signal does not.
+        // documents, which a bare signal does not. `terminate()` returns whether
+        // the request could even be made, and ignoring that meant a refusal
+        // looked exactly like a request the app was still thinking about.
+        var asked = false
         if target.isApplication, !force,
            let app = NSRunningApplication(processIdentifier: target.id) {
-            app.terminate()
-        } else {
+            asked = app.terminate()
+            if !asked {
+                Log.app.error("NSRunningApplication refused to ask \(target.name, privacy: .public) to quit; falling back to a signal")
+            }
+        }
+
+        if !asked {
             do {
                 try ProcessTerminator.terminate(pid: target.id, force: force)
             } catch let failure as ProcessTerminator.Failure {

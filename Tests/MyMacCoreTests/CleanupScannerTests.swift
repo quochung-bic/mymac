@@ -184,6 +184,49 @@ struct LargeFileScannerTests {
     }
 }
 
+/// Regression cover for P3-4 in the 2026-08-20 audit.
+@Suite("Duplicate size keying")
+struct DuplicateSizeKeyingTests {
+    /// A sparse file and a dense one can hold byte-for-byte identical content
+    /// while occupying wildly different amounts of disk — 0 against 200 KB
+    /// here. Keying the first pass on allocated size put them in separate
+    /// groups, so they were never compared and the duplicate was never found.
+    @Test func filesWithIdenticalContentAreComparedEvenWhenTheyOccupyDifferentSpace() throws {
+        let temp = try TemporaryDirectory()
+        let root = try temp.makeDirectory("Documents")
+        let sparse = root.appendingPathComponent("sparse.bin")
+        let dense = root.appendingPathComponent("dense.bin")
+
+        // Sparse: a length with nothing written behind it.
+        FileManager.default.createFile(atPath: sparse.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: sparse)
+        try handle.truncate(atOffset: 200_000)
+        try handle.close()
+        try Data(repeating: 0, count: 200_000).write(to: dense)
+
+        let sparseValues = try sparse.resourceValues(forKeys: [.fileSizeKey, .totalFileAllocatedSizeKey])
+        let denseValues = try dense.resourceValues(forKeys: [.fileSizeKey, .totalFileAllocatedSizeKey])
+        try #require(sparseValues.fileSize == denseValues.fileSize, "same logical size")
+        try #require(sparseValues.totalFileAllocatedSize != denseValues.totalFileAllocatedSize,
+                     "this filesystem did not make the file sparse, so the case is not being tested")
+
+        let items = try DuplicateScanner.scan(roots: [root], minimumSize: 100_000)
+
+        #expect(items.count == 1, "one of the two copies must be offered, got \(items.count)")
+    }
+
+    @Test func filesOfDifferentContentAreNotOffered() throws {
+        let temp = try TemporaryDirectory()
+        let root = try temp.makeDirectory("Documents")
+        try Data(repeating: 1, count: 200_000).write(to: root.appendingPathComponent("one.bin"))
+        try Data(repeating: 2, count: 200_000).write(to: root.appendingPathComponent("two.bin"))
+
+        let items = try DuplicateScanner.scan(roots: [root], minimumSize: 100_000)
+
+        #expect(items.isEmpty, "same size is not same content")
+    }
+}
+
 @Suite("Catalog coverage")
 struct CatalogCoverageTests {
     @Test func developerEcosystemsAreCovered() {
@@ -227,6 +270,30 @@ struct CatalogCoverageTests {
                 #expect(allowed.contains("\(root)|\(other)"),
                         "\(root) is inside \(other) and has not been reviewed")
             }
+        }
+    }
+
+    /// A deep scan starts at the home folder, so without this every developer
+    /// cache would also be reported as a large file — the same gigabyte counted
+    /// twice, and offered for deletion from two places.
+    @Test func everyDeveloperCacheIsUnreachableFromADeepScan() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let excluded = CleanupCatalog.excludedScanDirectories(home: home)
+        let homeComponents = home.standardizedFileURL.pathComponents
+
+        for rule in CleanupCatalog.rules(home: home) where rule.id.hasPrefix("dev.") {
+            let components = rule.root.standardizedFileURL.pathComponents
+            var walked = homeComponents
+            var blocked = false
+            for component in components.dropFirst(homeComponents.count) {
+                walked.append(component)
+                if LargeFileScanner.skippedDirectoryNames.contains(component)
+                    || excluded.contains(NSURL.fileURL(withPathComponents: walked)!.standardizedFileURL.path) {
+                    blocked = true
+                    break
+                }
+            }
+            #expect(blocked, "\(rule.id) at \(rule.root.path) is still reachable from a deep scan")
         }
     }
 

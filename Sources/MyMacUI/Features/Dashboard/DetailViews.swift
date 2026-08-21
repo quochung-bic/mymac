@@ -259,6 +259,9 @@ struct NetworkDetailView: View {
             }
         }
         .metricsScope(.detail, store: store)
+        // The one page that displays radio conditions, and therefore the only
+        // one that pays for reading them.
+        .metricsScope(.radio, store: store)
         // The only outbound request the app makes, and only while this page is
         // on screen. The answer is cached for fifteen minutes after that.
         .task { store.lookupPublicAddress() }
