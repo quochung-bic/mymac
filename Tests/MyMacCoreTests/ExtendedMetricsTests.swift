@@ -145,3 +145,35 @@ struct ProcessCPUAccuracyTests {
         #expect(cpu < Double(ProcessInfo.processInfo.activeProcessorCount))
     }
 }
+
+/// Regression cover for P3-8 in the 2026-08-20 audit: the battery power figure
+/// showed "—" on mains power without charging, while both the README and the
+/// on-screen note said it would read zero.
+@Suite("Battery power reporting")
+struct BatteryPowerTests {
+    private func battery(voltage: Double?, amperage: Double?) -> BatteryCollector.SmartBattery {
+        var value = BatteryCollector.SmartBattery()
+        value.voltage = voltage
+        value.amperage = amperage
+        return value
+    }
+
+    @Test func nothingFlowingReadsZeroRatherThanUnavailable() {
+        #expect(battery(voltage: 12.6, amperage: 0).power == 0)
+    }
+
+    @Test func aReadingWithoutTheNumbersBehindItStaysUnavailable() {
+        #expect(battery(voltage: nil, amperage: -1.2).power == nil)
+        #expect(battery(voltage: 12.6, amperage: nil).power == nil)
+        #expect(battery(voltage: nil, amperage: nil).power == nil)
+    }
+
+    /// Discharging reports a negative current; the magnitude is what answers
+    /// "what is this costing me".
+    @Test func theMagnitudeIsReportedWhicheverWayCurrentFlows() throws {
+        let discharging = try #require(battery(voltage: 12.6, amperage: -2.0).power)
+        let charging = try #require(battery(voltage: 12.6, amperage: 2.0).power)
+        #expect(abs(discharging - 25.2) < 0.001)
+        #expect(abs(charging - 25.2) < 0.001)
+    }
+}

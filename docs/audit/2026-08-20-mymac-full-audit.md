@@ -9,6 +9,29 @@
 
 ---
 
+## Trạng thái thực hiện
+
+| Vòng | Ngày | Nội dung | Kết quả |
+|---|---|---|---|
+| **1** | 2026-08-20 | P1-1 · P1-3 (git + LICENSE) · P2-3 · P2-4 · P2-7 · P3-2 | 120 test |
+| **2** | 2026-08-20 | P2-1 · P2-2 · P2-5 · P2-6 | 130 test |
+| **3** | 2026-08-21 | P2-9 (tách target + test tầng app) · P1-3 (CI) · P3-8 · đồng bộ README | 151 test |
+
+**Còn lại:** toàn bộ P3 trừ P3-2 và P3-8 (vòng 4), app icon, và 6 quyết định ở mục
+"Cần bạn quyết". Mâu thuẫn README #1 (Location/SSID) vẫn mở — nay đã được ghi rõ
+trong README như một quyết định chưa chốt thay vì để hai đoạn nói ngược nhau.
+
+**Sai lệch so với báo cáo gốc:**
+- **P2-6** không sửa được theo cách đã đề xuất. `SceneBuilder` không có `buildEither`,
+  nên không thể gắn `defaultLaunchBehavior` / `restorationBehavior` sau một
+  `if #available` khi deployment target là macOS 14. Đã chuyển sang bỏ version gate ở
+  `AppDelegate` để cơ chế AppKit chạy trên mọi phiên bản. Muốn dùng đúng API SwiftUI
+  thì phải nâng deployment target lên macOS 15 — đó là một quyết định mới, chưa có
+  trong danh sách (C).
+- **P1-1** mô tả triệu chứng sai trong bản đầu; đã đính chính tại chỗ.
+
+---
+
 ## 0. Chuẩn đối chiếu (standard of comparison)
 
 Repo không có `docs/`, ADR hay spec riêng. Chuẩn được xếp theo thẩm quyền:

@@ -478,6 +478,23 @@ ol.steps .ref { font-family: var(--f-mono); font-size: 11px; color: var(--ink-fa
 </div>
 
 <section>
+  <h2>Trạng thái thực hiện</h2>
+  <p class="sec-lede">Cập nhật 2026-08-21. Báo cáo này được duy trì, không phải ảnh chụp một lần.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Vòng</th><th>Ngày</th><th>Nội dung</th><th>Kết quả</th></tr></thead>
+      <tbody>
+        <tr><td class="tid">1</td><td>2026-08-20</td><td>P1-1 · P1-3 (git + LICENSE) · P2-3 · P2-4 · P2-7 · P3-2</td><td>120 test</td></tr>
+        <tr><td class="tid">2</td><td>2026-08-20</td><td>P2-1 · P2-2 · P2-5 · P2-6</td><td>130 test</td></tr>
+        <tr><td class="tid">3</td><td>2026-08-21</td><td>P2-9 (tách target + test tầng app) · P1-3 (CI) · P3-8 · đồng bộ README</td><td>151 test</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="impact" style="margin-top:16px"><b>Còn lại</b>Toàn bộ P3 trừ P3-2 và P3-8 (vòng 4), app icon, và 6 quyết định ở mục “Cần bạn quyết”. Mâu thuẫn README #1 (Location/SSID) vẫn mở — nay đã được ghi rõ trong README như một quyết định chưa chốt thay vì để hai đoạn nói ngược nhau.</div>
+  <div class="impact" style="border-left:3px solid var(--sev2)"><b>Sai lệch so với báo cáo gốc</b><b style="font-weight:600;text-transform:none;font-size:1em;letter-spacing:0;display:inline">P2-6</b> không sửa được theo cách đã đề xuất: <code>SceneBuilder</code> không có <code>buildEither</code>, nên không thể gắn <code>defaultLaunchBehavior</code> / <code>restorationBehavior</code> sau một <code>if #available</code> khi deployment target là macOS 14. Đã chuyển sang bỏ version gate ở <code>AppDelegate</code>. Muốn dùng đúng API SwiftUI thì phải nâng deployment target lên macOS 15 — một quyết định mới, chưa có trong danh sách (C). <b style="font-weight:600;text-transform:none;font-size:1em;letter-spacing:0;display:inline">P1-1</b> mô tả triệu chứng sai trong bản đầu; đã đính chính tại chỗ.</div>
+</section>
+
+<section>
   <h2>Chuẩn đối chiếu</h2>
   <p class="sec-lede">Một cuộc audit hỏi “hệ thống lệch đi đâu so với thứ nó lẽ ra phải là” — nên việc đầu tiên là tìm ra “thứ nó lẽ ra phải là”.</p>
   <p>Repo không có <code>docs/</code>, ADR hay spec riêng. Chuẩn được xếp theo thẩm quyền: <b>README.md</b> (27 KB) là nguồn chuẩn chính — nó không phải hướng dẫn cài đặt mà là một design doc đầy đủ, ghi rõ ý đồ kiến trúc, chính sách lấy mẫu, mô hình an toàn của cleaner và cả những giới hạn tự nhận. Sau đó là <b>109 test</b> trong 28 suite, rồi đến <b>doc comment</b> trong source — repo này viết comment ở mức hiếm thấy, nhiều chỗ ghi lại đúng <i>lý do</i> của một quyết định.</p>

@@ -13,14 +13,28 @@ let package = Package(
             name: "MyMacCore",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // The app itself is a library, not the executable. SwiftPM cannot link
+        // a test target against an executable, and leaving the app layer here
+        // untested is what let a broken login-item message and a timeout that
+        // could never fire both ship.
+        .target(
+            name: "MyMacUI",
+            dependencies: ["MyMacCore"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .executableTarget(
             name: "MyMac",
-            dependencies: ["MyMacCore"],
+            dependencies: ["MyMacUI"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "MyMacCoreTests",
             dependencies: ["MyMacCore"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "MyMacUITests",
+            dependencies: ["MyMacUI"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

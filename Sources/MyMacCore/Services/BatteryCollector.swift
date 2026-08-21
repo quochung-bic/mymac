@@ -67,7 +67,9 @@ public final class BatteryCollector {
         return nil
     }
 
-    private struct SmartBattery {
+    /// Internal so the zero-versus-missing distinction can be tested without
+    /// a machine in a particular power state.
+    struct SmartBattery {
         var cycleCount: Int?
         var health: Double?
         var voltage: Double?
@@ -78,10 +80,15 @@ public final class BatteryCollector {
         /// Watts, from the SMC's own volts and amps. Sign is dropped: the
         /// interesting quantity is magnitude, and the direction is already
         /// conveyed by the charging state.
+        ///
+        /// Zero is an answer, not a missing one. On mains power without
+        /// charging nothing flows in or out of the battery, and that is what
+        /// both the interface and the README say the figure will read. Filtering
+        /// small values to `nil` made it show "—" instead, which claims the
+        /// reading is unavailable.
         var power: Double? {
             guard let voltage, let amperage else { return nil }
-            let watts = abs(voltage * amperage)
-            return watts > 0.01 ? watts : nil
+            return abs(voltage * amperage)
         }
     }
 

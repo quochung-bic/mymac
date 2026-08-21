@@ -129,8 +129,12 @@ enum DockPolicy {
     }
 }
 
-@main
-struct MyMacApp: App {
+/// Public, and without `@main`: the entry point is `Sources/MyMac/main.swift`,
+/// which calls the `main()` the `App` protocol already provides. That keeps
+/// every line of the app inside a library a test target can link against.
+public struct MyMacApp: App {
+    public init() {}
+
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var store = MetricsStore()
     @State private var cleaner = CleanerModel()
@@ -140,7 +144,7 @@ struct MyMacApp: App {
     @AppStorage(MenuBarPreference.showsCPU) private var showsCPU = true
     @AppStorage(MenuBarPreference.showsMemory) private var showsMemory = true
 
-    var body: some Scene {
+    public var body: some Scene {
         // MenuBarExtra is declared first so it is the app's primary scene: this
         // is a menu bar utility, and launching it must not put a window on
         // screen. `AppDelegate` closes anything SwiftUI opens anyway.

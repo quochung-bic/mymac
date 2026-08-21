@@ -253,7 +253,13 @@ struct CatalogCoverageTests {
         #expect(group.items.isEmpty, "an advisory group must never offer anything to delete")
     }
 
-    @Test func realDeveloperCachesAreFoundOnThisMac() async throws {
+    /// Deliberately reads the machine it runs on: the point is that the
+    /// catalog's paths match where these tools really put their caches, which a
+    /// fixture cannot tell you. A clean CI runner has none of them, so there it
+    /// would only ever assert that the runner is clean.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil,
+                   "needs a developer machine's real caches"))
+    func realDeveloperCachesAreFoundOnThisMac() async throws {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let rules = CleanupCatalog.rules(home: home).filter { $0.id.hasPrefix("dev.") }
         let scanner = CleanupScanner(home: home)

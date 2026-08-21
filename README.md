@@ -6,19 +6,27 @@ dependencies, no Electron, no web view.
 ## Build and run
 
 ```bash
-./Scripts/build-app.sh release   # produces build/MyMac.app
+./Scripts/build-app.sh release   # produces build/MyMac.app, universal
 open build/MyMac.app
 
-swift test                        # 60 tests
+swift test                        # 151 tests
 ```
 
 Requires Xcode 16+ / Swift 6. Deployment target is macOS 14.
+
+The bundle is a **universal binary** — arm64 and x86_64 — so a copy built on
+one kind of Mac runs on the other. Nothing in the source is conditional on the
+architecture; the cost is build time, and `MYMAC_UNIVERSAL=0` skips the second
+slice while you are iterating.
 
 SwiftPM produces a bare executable, so `Scripts/build-app.sh` assembles the
 `.app` bundle around it (`Resources/Info.plist` + ad-hoc signature). There is no
 Xcode project to keep in sync. To ship it, replace the ad-hoc signature with a
 Developer ID identity — that is also what **Open at Login** needs, since
-`SMAppService` refuses unsigned bundles.
+`SMAppService` refuses a bundle that is not signed with one. With the ad-hoc
+signature this build script produces, that toggle will refuse and say so.
+
+Licensed under the MIT licence; see `LICENSE`.
 
 ## Layout
 
@@ -30,10 +38,19 @@ Sources/MyMacCore/         no AppKit, no SwiftUI — testable on its own
 ├── Services/              one collector per subsystem + SystemMonitor
 └── Cleaner/               PathSafety, CleanupCatalog, scanners, engine
 
-Sources/MyMac/             the app
+Sources/MyMacUI/           the app — a library, so it can be tested
 ├── App/                   MyMacApp, MetricsStore, DockPolicy
 └── Features/              Dashboard, MenuBar, Processes, Cleaner, Settings
+
+Sources/MyMac/             main.swift, one line, calls MyMacApp.main()
 ```
+
+The app is a library and the executable is a single line for one reason: SwiftPM
+cannot link a test target against an executable, and leaving the app layer
+untested is what let a login-item message that erased itself and a timeout that
+could never fire both ship. `Tests/MyMacCoreTests` covers the core,
+`Tests/MyMacUITests` covers the models, the sampling lifecycle and the menu bar
+drawing.
 
 Two rules keep this honest: the core never imports AppKit or SwiftUI, and the UI
 never calls a Mach API. Anything AppKit-only that the core needs is injected —
@@ -223,6 +240,13 @@ bespoke layouts read as five screens that happen to ship together.
 | Memory | Composition bar (app / wired / compressed / cached), swap meter, swap in-out rates, page-in rate, compressor ratio, largest consumers |
 | Storage | Purgeable space, read/write throughput **and** IOPS, per-volume list |
 | Network | IP address, **router**, **DNS resolvers**, negotiated link rate, MTU, packet rates, errors and drops, peak throughput, totals since boot *and* this session, VPN / metered / low-data flags, per-interface breakdown, and **Wi-Fi radio conditions** |
+
+Throughput counts **physical interfaces only**. A packet crossing a VPN is
+counted twice by the kernel — once on the `utun` device and again on the `en`
+device carrying it — so adding both reported roughly double the traffic that
+actually moved. Tunnels, bridges and Internet Sharing interfaces are left out of
+the total and still listed individually, which is where seeing that a VPN is
+carrying the traffic is the point.
 | Battery | Cycles, capacity vs new, condition, mAh now/design, voltage, live watts, adapter model and rating, Low Power Mode |
 
 The Wi-Fi card reports signal strength, the **noise floor**, and the gap between
@@ -379,8 +403,13 @@ shown in the confirmation sheet before it runs.
 
 Applications are pure AppKit: the bundle and its selected support files go to the
 **Trash**, never straight out. Leftovers are found by bundle identifier across
-the fourteen places macOS keeps per-app state, and those same folders are the
-only roots `PathSafety` will accept at removal time. Two honest limits are stated
+the twelve places macOS keeps per-app state, plus Group Containers, whose names
+carry a team identifier in front of the bundle identifier. Two further folders —
+`Application Support/<name>` and `Logs/<name>` — are matched on the app's
+display name, because that is the established convention in those two and
+nowhere else; the confirmation sheet says the list is keyed on the identifier
+rather than claiming to be exhaustive. Those folders are the only roots
+`PathSafety` will accept at removal time. Two honest limits are stated
 in the interface rather than papered over:
 
 - An app that is **running** is flagged, because its state gets written back out
@@ -492,7 +521,14 @@ identity for that.
   shelling out.
 - **CPU usage per process is a fraction of one core**, so a busy multithreaded
   process can exceed 100 %, matching Activity Monitor.
-- **Network totals are per session**, counted from the moment monitoring starts,
-  not since boot.
+- **Two network totals are shown**: *since boot*, taken from the interface's own
+  cumulative counters, and *this session*, counted from the moment monitoring
+  started. Neither is a substitute for the other, so both are on screen.
+- **The Location permission currently unlocks nothing.** The Wi-Fi network name
+  is read and then discarded: no view displays it, so granting Location changes
+  nothing on screen while the Wi-Fi card still says the app does not ask for it.
+  Two sections of this file disagree about whether the name should be shown at
+  all. That is an open decision, not an oversight to work around — either the
+  name gets displayed or the permission comes out entirely.
 - **Open at Login needs a real signature.** With the ad-hoc signature from the
   build script, `SMAppService` will refuse and the toggle reports why.

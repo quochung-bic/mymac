@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: swift --version
+
+      # Warnings are not tolerated here: the tree builds clean under Swift 6
+      # strict concurrency today, and the cheapest way to keep it that way is to
+      # notice the first one rather than the fortieth.
+      - name: Build (debug, warnings as errors)
+        run: swift build -c debug -Xswiftc -warnings-as-errors
+
+      # A handful of tests read the machine they run on. Setting CI skips the
+      # one that needs a developer's real package-manager caches; everything
+      # else works on a clean runner.
+      - name: Test
+        env:
+          CI: "1"
+        run: swift test
+
+  universal:
+    name: Universal binary
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # The whole point of supporting Intel is that a bundle built anywhere runs
+      # everywhere, so both slices are built and the result is checked rather
+      # than assumed.
+      - name: Assemble MyMac.app
+        run: ./Scripts/build-app.sh release
+
+      - name: Verify both architectures are present
+        run: |
+          lipo -info build/MyMac.app/Contents/MacOS/MyMac
+          lipo -info build/MyMac.app/Contents/MacOS/MyMac | grep -q x86_64
+          lipo -info build/MyMac.app/Contents/MacOS/MyMac | grep -q arm64
+
+      - name: Verify the bundle is signed and well formed
+        run: codesign --verify --verbose=2 build/MyMac.app

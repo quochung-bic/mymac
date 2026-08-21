@@ -31,10 +31,7 @@ struct SettingsView: View {
     @AppStorage(MenuBarPreference.showsMemory) private var showsMemory = true
     @AppStorage(SettingsKey.relaxedUpdates) private var relaxedUpdates = false
 
-    /// Mirrors `SMAppService`, and is only ever written from the authoritative
-    /// status — never from what the user just clicked.
-    @State private var isRegistered = SMAppService.mainApp.status == .enabled
-    @State private var loginItemError: String?
+    @State private var loginItem = LoginItemController()
 
     private let system = SystemInfo.current
 
@@ -64,7 +61,7 @@ struct SettingsView: View {
             // The failure message names the likely cause, which takes a few
             // lines. Truncating the one explanation the user needs would be a
             // strange thing to save vertical space on.
-            startup.frame(height: loginItemError == nil ? 92 : 168)
+            startup.frame(height: loginItem.errorMessage == nil ? 92 : 168)
             about.frame(maxHeight: .infinity)
         }
     }
@@ -158,28 +155,24 @@ struct SettingsView: View {
 
     // MARK: - Startup
 
-    /// Drives `SMAppService` from the setter rather than from `onChange`.
-    ///
-    /// Writing the bound state inside the failure handler re-entered `onChange`,
-    /// and its second pass called `unregister()`, succeeded, and cleared the
-    /// very message that explained the failure. There is no second pass here.
+    /// Driven from the setter rather than from `onChange`: writing bound state
+    /// inside a failure handler re-enters the change handler, and its second
+    /// pass was what cleared the message explaining the failure.
     private var launchAtLogin: Binding<Bool> {
-        Binding(get: { isRegistered }, set: { updateLoginItem(enabled: $0) })
+        Binding(get: { loginItem.isEnabled }, set: { loginItem.setEnabled($0) })
     }
 
     private var startup: some View {
         Card(title: "Startup", symbol: "power", fillsHeight: true) {
             Toggle("Open at login", isOn: launchAtLogin)
-            if let loginItemError {
-                Text(loginItemError)
+            if let message = loginItem.errorMessage {
+                Text(message)
                     .font(.note)
                     .foregroundStyle(.orange)
             }
             Spacer(minLength: 0)
         }
-        // Granted and revoked outside the app too, from System Settings →
-        // General → Login Items, so the switch is re-read rather than trusted.
-        .onAppear { isRegistered = SMAppService.mainApp.status == .enabled }
+        .onAppear { loginItem.refresh() }
     }
 
     // MARK: - About
@@ -198,40 +191,5 @@ struct SettingsView: View {
 
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-    }
-
-    /// `SMAppService` is the supported replacement for login-item hacks. It needs
-    /// a signed, bundled app, so failure is reported rather than hidden.
-    private func updateLoginItem(enabled: Bool) {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-            loginItemError = nil
-        } catch {
-            loginItemError = Self.explain(error, enabling: enabled)
-            Log.app.error("login item change failed: \(error.localizedDescription)")
-        }
-        // The service decides, not the click. If it refused, the switch goes
-        // back on its own without anything else having to notice.
-        isRegistered = SMAppService.mainApp.status == .enabled
-    }
-
-    /// `SMAppService` reports a bare "Operation not permitted" for the case
-    /// people building this themselves will actually hit, and that alone does
-    /// not tell anyone why. The likely cause is named instead.
-    private static func explain(_ error: Error, enabling: Bool) -> String {
-        let detail = (error as NSError).localizedDescription
-        guard enabling else {
-            return "macOS refused to remove the login item: \(detail)"
-        }
-        return """
-        macOS refused to add MyMac as a login item: \(detail) \
-        The usual cause is the signature: macOS only accepts a login item from a bundle signed \
-        with a Developer ID, and Scripts/build-app.sh signs ad-hoc. Re-sign with a Developer ID \
-        identity, or add MyMac by hand in System Settings → General → Login Items.
-        """
     }
 }
