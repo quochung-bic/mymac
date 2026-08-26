@@ -8,7 +8,7 @@ dependencies, no Electron, no web view.
 There is no installer and no release download. You build it:
 
 ```bash
-git clone https://github.com/<owner>/mymac.git
+git clone https://github.com/quochung-bic/mymac.git
 cd mymac
 ./Scripts/install.sh          # builds, then puts MyMac.app in /Applications
 ```
