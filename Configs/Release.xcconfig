@@ -1,0 +1,20 @@
+#include "Base.xcconfig"
+
+// Force both arm64 and x86_64. Left at YES, a Release built on Apple Silicon
+// would silently abandon every Intel user.
+ONLY_ACTIVE_ARCH = NO
+
+SWIFT_OPTIMIZATION_LEVEL = -O
+SWIFT_COMPILATION_MODE = wholemodule
+GCC_OPTIMIZATION_LEVEL = s
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+ENABLE_NS_ASSERTIONS = NO
+COPY_PHASE_STRIP = NO
+STRIP_INSTALLED_PRODUCT = YES
+STRIP_STYLE = non-global
+VALIDATE_PRODUCT = YES
+
+// A release build must not let a debugger attach. Xcode injects the
+// get-task-allow entitlement into every local build by default; disabling it
+// here makes a local Release identical to the one that goes for notarization.
+CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO

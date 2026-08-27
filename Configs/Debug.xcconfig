@@ -1,0 +1,15 @@
+#include "Base.xcconfig"
+
+// Build only for the host architecture — considerably faster. Release is the
+// configuration that has to be universal.
+ONLY_ACTIVE_ARCH = YES
+
+GCC_OPTIMIZATION_LEVEL = 0
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+SWIFT_COMPILATION_MODE = incremental
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG $(inherited)
+GCC_PREPROCESSOR_DEFINITIONS = DEBUG=1 $(inherited)
+DEBUG_INFORMATION_FORMAT = dwarf
+ENABLE_TESTABILITY = YES
+COPY_PHASE_STRIP = NO
+GCC_DYNAMIC_NO_PIC = NO

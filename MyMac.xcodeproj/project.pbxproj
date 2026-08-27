@@ -1,0 +1,336 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C0FF00000000000000000101 /* MyMacUI in Frameworks */ = {isa = PBXBuildFile; productRef = C0FF00000000000000000100 /* MyMacUI */; };
+		C0FF00000000000000000401 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = C0FF00000000000000000400 /* AppIcon.icns */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C0FF00000000000000000261 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C0FF00000000000000000060 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0FF00000000000000000040;
+			remoteInfo = MyMac;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		C0FF00000000000000000001 /* MyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0FF00000000000000000201 /* MyMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MyMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0FF00000000000000000300 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		C0FF00000000000000000301 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		C0FF00000000000000000302 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		C0FF00000000000000000303 /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
+		C0FF00000000000000000304 /* UITests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = UITests.xcconfig; sourceTree = "<group>"; };
+		C0FF00000000000000000305 /* MyMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MyMac.entitlements; sourceTree = "<group>"; };
+		C0FF00000000000000000400 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		C0FF00000000000000000402 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		C0FF00000000000000000010 /* MyMac */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Sources/MyMac; sourceTree = "<group>"; };
+		C0FF00000000000000000210 /* MyMacUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MyMacUITests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C0FF00000000000000000020 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0FF00000000000000000101 /* MyMacUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0FF00000000000000000243 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C0FF00000000000000000030 = {
+			isa = PBXGroup;
+			children = (
+				C0FF00000000000000000010 /* MyMac */,
+				C0FF00000000000000000210 /* MyMacUITests */,
+				C0FF00000000000000000310 /* Configs */,
+				C0FF00000000000000000320 /* Resources */,
+				C0FF00000000000000000031 /* Packages */,
+				C0FF00000000000000000032 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C0FF00000000000000000031 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		C0FF00000000000000000032 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C0FF00000000000000000001 /* MyMac.app */,
+				C0FF00000000000000000201 /* MyMacUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C0FF00000000000000000310 /* Configs */ = {
+			isa = PBXGroup;
+			children = (
+				C0FF00000000000000000300 /* Base.xcconfig */,
+				C0FF00000000000000000301 /* Debug.xcconfig */,
+				C0FF00000000000000000302 /* Release.xcconfig */,
+				C0FF00000000000000000303 /* App.xcconfig */,
+				C0FF00000000000000000304 /* UITests.xcconfig */,
+				C0FF00000000000000000305 /* MyMac.entitlements */,
+			);
+			path = Configs;
+			sourceTree = "<group>";
+		};
+		C0FF00000000000000000320 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C0FF00000000000000000400 /* AppIcon.icns */,
+				C0FF00000000000000000402 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C0FF00000000000000000040 /* MyMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0FF00000000000000000050 /* Build configuration list for PBXNativeTarget "MyMac" */;
+			buildPhases = (
+				C0FF00000000000000000041 /* Sources */,
+				C0FF00000000000000000020 /* Frameworks */,
+				C0FF00000000000000000042 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C0FF00000000000000000010 /* MyMac */,
+			);
+			name = MyMac;
+			packageProductDependencies = (
+				C0FF00000000000000000100 /* MyMacUI */,
+			);
+			productName = MyMac;
+			productReference = C0FF00000000000000000001 /* MyMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C0FF00000000000000000240 /* MyMacUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0FF00000000000000000250 /* Build configuration list for PBXNativeTarget "MyMacUITests" */;
+			buildPhases = (
+				C0FF00000000000000000241 /* Sources */,
+				C0FF00000000000000000243 /* Frameworks */,
+				C0FF00000000000000000242 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C0FF00000000000000000260 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C0FF00000000000000000210 /* MyMacUITests */,
+			);
+			name = MyMacUITests;
+			packageProductDependencies = (
+			);
+			productName = MyMacUITests;
+			productReference = C0FF00000000000000000201 /* MyMacUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C0FF00000000000000000060 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					C0FF00000000000000000040 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					C0FF00000000000000000240 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = C0FF00000000000000000040;
+					};
+				};
+			};
+			buildConfigurationList = C0FF00000000000000000061 /* Build configuration list for PBXProject "MyMac" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = C0FF00000000000000000030;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C0FF00000000000000000090 /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C0FF00000000000000000032 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C0FF00000000000000000040 /* MyMac */,
+				C0FF00000000000000000240 /* MyMacUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C0FF00000000000000000042 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0FF00000000000000000401 /* AppIcon.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0FF00000000000000000242 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C0FF00000000000000000041 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0FF00000000000000000241 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C0FF00000000000000000260 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0FF00000000000000000040 /* MyMac */;
+			targetProxy = C0FF00000000000000000261 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C0FF00000000000000000070 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0FF00000000000000000301 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C0FF00000000000000000071 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0FF00000000000000000302 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C0FF00000000000000000080 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0FF00000000000000000303 /* App.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C0FF00000000000000000081 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0FF00000000000000000303 /* App.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C0FF00000000000000000280 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0FF00000000000000000304 /* UITests.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C0FF00000000000000000281 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0FF00000000000000000304 /* UITests.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C0FF00000000000000000050 /* Build configuration list for PBXNativeTarget "MyMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0FF00000000000000000080 /* Debug */,
+				C0FF00000000000000000081 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0FF00000000000000000061 /* Build configuration list for PBXProject "MyMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0FF00000000000000000070 /* Debug */,
+				C0FF00000000000000000071 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0FF00000000000000000250 /* Build configuration list for PBXNativeTarget "MyMacUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0FF00000000000000000280 /* Debug */,
+				C0FF00000000000000000281 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		C0FF00000000000000000090 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C0FF00000000000000000100 /* MyMacUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MyMacUI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = C0FF00000000000000000060 /* Project object */;
+}

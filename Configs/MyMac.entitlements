@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Deliberately empty: the App Sandbox is OFF, and that is a design decision
+  rather than an omission.
+
+  A system monitor and cleaner cannot work inside the sandbox. It enumerates
+  every running process, reads IORegistry nodes for disk and battery, walks the
+  user's caches to measure and delete them, lists /Applications to uninstall
+  from it, and spawns package managers through CommandRunner. Each of those is
+  something the sandbox exists to prevent.
+
+  The protection model is therefore not the sandbox but PathSafety: an
+  allowlist of exact directories, seven checks before any deletion, and
+  re-validation immediately before touching a path. See the README.
+
+  Hardened runtime is on (App.xcconfig) so the route to a signed, notarized
+  release stays open.
+-->
+<plist version="1.0">
+<dict/>
+</plist>

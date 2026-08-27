@@ -1,0 +1,41 @@
+// App.xcconfig — settings specific to the application target.
+// Everything shared (platform, Swift, warnings) lives in
+// Base/Debug/Release.xcconfig, applied at the project level.
+
+// MARK: - Identity
+
+// com.mymac.app is NOT a placeholder to tidy up later. It is the UserDefaults
+// domain (~/Library/Preferences/com.mymac.app.plist, which the README promises
+// is the only thing an uninstall leaves behind), the SMAppService login-item
+// registration, the target of the `osascript ... tell application id` line in
+// Scripts/install.sh, and the identity macOS ties every TCC grant to. Changing
+// it silently orphans all four on every existing install.
+PRODUCT_BUNDLE_IDENTIFIER = com.mymac.app
+PRODUCT_NAME = MyMac
+
+MARKETING_VERSION = 1.0
+CURRENT_PROJECT_VERSION = 1
+
+// All strings in code are English; the app ships in English only.
+DEVELOPMENT_LANGUAGE = en
+
+// MARK: - Info.plist
+//
+// Checked in and hand-maintained, rather than generated. It carries the bundle
+// identifier above, an NSLocationWhenInUseUsageDescription that is three
+// sentences of prose, and explanatory comments — none of which an xcconfig
+// holds well. One plist, one source of truth.
+GENERATE_INFOPLIST_FILE = NO
+INFOPLIST_FILE = Resources/Info.plist
+
+// MARK: - Signing
+
+// Hardened runtime is on so a local build matches a release build as closely as
+// possible: anything it breaks then breaks on the developer's machine rather
+// than after notarization.
+ENABLE_HARDENED_RUNTIME = YES
+CODE_SIGN_ENTITLEMENTS = Configs/MyMac.entitlements
+// "-" means ad-hoc signing. A real release needs "Developer ID Application",
+// which is also what SMAppService requires before Open at Login will work.
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Automatic

@@ -2,3 +2,8 @@
 build/
 .swiftpm/
 .DS_Store
+
+# Xcode writes per-user state inside the project bundle. Only the shared scheme
+# under xcshareddata/ belongs in the repository.
+xcuserdata/
+*.xcuserstate

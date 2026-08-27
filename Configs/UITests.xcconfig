@@ -1,0 +1,8 @@
+// UITests.xcconfig — the UI test target.
+
+PRODUCT_BUNDLE_IDENTIFIER = com.mymac.app.UITests
+PRODUCT_NAME = $(TARGET_NAME)
+TEST_TARGET_NAME = MyMac
+GENERATE_INFOPLIST_FILE = YES
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Automatic
