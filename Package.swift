@@ -5,7 +5,6 @@ let package = Package(
     name: "MyMacKit",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "MyMac", targets: ["MyMac"]),
         .library(name: "MyMacCore", targets: ["MyMacCore"]),
         // Vended so the Xcode app target can link the app layer. The
         // executable stays a single line; this is what it links too.
@@ -23,11 +22,6 @@ let package = Package(
         .target(
             name: "MyMacUI",
             dependencies: ["MyMacCore"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .executableTarget(
-            name: "MyMac",
-            dependencies: ["MyMacUI"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

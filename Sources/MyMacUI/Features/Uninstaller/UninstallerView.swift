@@ -21,6 +21,11 @@ struct UninstallerView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                // `.labelsHidden()` removes the label from the accessibility
+                // tree as well as the screen, so VoiceOver announces this as an
+                // unnamed segmented control. Name it by hand.
+                .accessibilityLabel("Category")
+                .accessibilityIdentifier("uninstaller-scope")
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
                 .padding(.bottom, 8)
@@ -29,7 +34,9 @@ struct UninstallerView: View {
                     TableColumn("Name", value: \.name) { item in
                         HStack(spacing: 7) {
                             InstalledItemIcon(item: item)
-                            Text(item.name).lineLimit(1)
+                            Text(item.name)
+                                .lineLimit(1)
+                                .accessibilityIdentifier("uninstaller-name")
                             if let version = item.version {
                                 Text(version)
                                     .font(.note)
@@ -44,6 +51,7 @@ struct UninstallerView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.head)
+                            .accessibilityIdentifier("uninstaller-origin")
                     }
                     .width(150)
                     TableColumn("Size", value: \.sizeSortValue) { item in
@@ -51,6 +59,7 @@ struct UninstallerView: View {
                             .monospacedDigit()
                             .foregroundStyle(item.size == nil ? .tertiary : .primary)
                             .frame(maxWidth: .infinity, alignment: .trailing)
+                            .accessibilityIdentifier("uninstaller-size")
                     }
                     .width(80)
                     TableColumn("") { item in
@@ -58,6 +67,7 @@ struct UninstallerView: View {
                     }
                     .width(34)
                 }
+                .accessibilityIdentifier("uninstaller-table")
                 .searchable(text: $model.search, placement: .toolbar, prompt: "Filter by name")
             }
 
@@ -105,7 +115,11 @@ struct UninstallerView: View {
             Text("\(model.visibleItems.count) items")
             if model.isSizing {
                 ProgressView().controlSize(.small)
+                // A UI test waits for this to disappear before asserting on
+                // order: sorting by size deliberately falls back to name while
+                // measurements are still landing.
                 Text("measuring sizes…")
+                    .accessibilityIdentifier("uninstaller-sizing")
             }
             Spacer()
             Text(model.scope == .applications

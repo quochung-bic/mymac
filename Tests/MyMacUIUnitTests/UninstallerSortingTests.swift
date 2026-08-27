@@ -88,4 +88,48 @@ struct UninstallerSortingTests {
         model.sortOrder = [KeyPathComparator(\InstalledItem.origin, order: .forward)]
         #expect(model.visibleItems.map(\.name) == ["Bravo", "Zulu", "Alpha"])
     }
+
+    private func package(_ name: String, _ ecosystem: PackageEcosystem = .homebrew,
+                         size: Int64? = nil) -> InstalledItem {
+        InstalledItem(id: "\(ecosystem.rawValue)/\(name)", name: name, version: nil,
+                      source: .package(ecosystem),
+                      location: URL(fileURLWithPath: "/opt/homebrew/\(name)"),
+                      bundleIdentifier: nil, size: size)
+    }
+
+    /// The Others tab sorts the same way Applications does.
+    ///
+    /// This is pinned here rather than in a UI test on purpose. Switching to
+    /// that tab makes the app measure every installed package, spawning a
+    /// package manager per entry, and XCUITest answers no query until the app
+    /// goes idle — so a UI test for it does not run slowly, it hangs. The
+    /// `Table` binding those tests exist to cover is the same one the
+    /// Applications tab already proves.
+    @Test func theOthersScopeSortsLikeApplications() {
+        let model = UninstallerModel()
+        model.replaceItemsForTesting([
+            item("Zed application"),
+            package("bravo"),
+            package("alpha"),
+            package("charlie"),
+        ])
+        model.scope = .packages
+
+        #expect(model.visibleItems.map(\.name) == ["alpha", "bravo", "charlie"])
+        model.sortOrder = [KeyPathComparator(\InstalledItem.name, order: .reverse)]
+        #expect(model.visibleItems.map(\.name) == ["charlie", "bravo", "alpha"])
+    }
+
+    /// Each tab shows only its own kind, so a sort in one cannot pull rows in
+    /// from the other.
+    @Test func eachScopeShowsOnlyItsOwnKind() {
+        let model = UninstallerModel()
+        model.replaceItemsForTesting([item("An app"), package("a-package")])
+
+        model.scope = .applications
+        #expect(model.visibleItems.map(\.name) == ["An app"])
+        model.scope = .packages
+        #expect(model.visibleItems.map(\.name) == ["a-package"])
+    }
+
 }

@@ -3,7 +3,7 @@ import AppKit
 
 // Generates Resources/AppIcon.icns.
 //
-//     swift Scripts/make-icon.swift
+//     swift Scripts/GenerateAppIcon.swift
 //
 // The icon is drawn rather than shipped as a binary so it can be reviewed and
 // changed in the same way as everything else here. It is deliberately plain:

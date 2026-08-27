@@ -13,7 +13,8 @@ cd mymac
 ./Scripts/install.sh          # builds, then puts MyMac.app in /Applications
 ```
 
-`MYMAC_DEST=~/Applications ./Scripts/install.sh` installs for one user instead.
+`./Scripts/install.sh --destination ~/Applications` installs for one user
+instead, and `--test` runs the whole suite first. `--help` lists every option.
 
 Nothing was downloaded, so nothing is quarantined and Gatekeeper has nothing to
 warn about — an app you compiled yourself is not an app you fetched from the
@@ -28,28 +29,72 @@ leaves behind is `~/Library/Preferences/com.mymac.app.plist`.
 ## Build and run
 
 ```bash
-./Scripts/build-app.sh release   # produces build/MyMac.app, universal
+./Scripts/build.sh               # Release, universal, into build/MyMac.app
 open build/MyMac.app
 
-swift test                        # 180 tests
+./Scripts/build.sh --debug       # host architecture only, faster
+./Scripts/build.sh --test-only   # every test, then stop
+./Scripts/build.sh --help        # every option
 ```
 
-Requires Xcode 16+ / Swift 6. The command line tools on their own are enough for
-`MYMAC_UNIVERSAL=0`, but not for the universal build: two `--arch` flags send
-SwiftPM through Xcode's build system, and without Xcode installed it stops at
-`xcbuild executable ... does not exist`. Deployment target is macOS 14.
+Requires **Xcode 16+** / Swift 6 — the full Xcode, not just the command line
+tools, because the app and its UI tests are built with `xcodebuild`. Deployment
+target is macOS 14.
 
 The bundle is a **universal binary** — arm64 and x86_64 — so a copy built on
 one kind of Mac runs on the other. Nothing in the source is conditional on the
-architecture; the cost is build time, and `MYMAC_UNIVERSAL=0` skips the second
-slice while you are iterating.
+architecture; the cost is build time, and `--debug` skips the second slice while
+you are iterating. `build.sh` checks the result with `lipo` rather than assuming
+it, and a Release build that is missing a slice fails there.
 
-SwiftPM produces a bare executable, so `Scripts/build-app.sh` assembles the
-`.app` bundle around it (`Resources/Info.plist` + ad-hoc signature). There is no
-Xcode project to keep in sync. To ship it, replace the ad-hoc signature with a
-Developer ID identity — that is also what **Open at Login** needs, since
-`SMAppService` refuses a bundle that is not signed with one. With the ad-hoc
-signature this build script produces, that toggle will refuse and say so.
+`MyMac.xcodeproj` is deliberately thin: both targets use filesystem-synchronized
+groups, so adding a source file needs no edit to it, and every build setting
+lives in `Configs/*.xcconfig` rather than inside the project file. The Swift
+package remains the source of truth for the code — the app target links
+`MyMacUI` and compiles the same one-line `Sources/MyMac/main.swift`.
+
+To ship it, replace the ad-hoc signature with a Developer ID identity — that is
+also what **Open at Login** needs, since `SMAppService` refuses a bundle that is
+not signed with one. With the ad-hoc signature the build script produces, that
+toggle will refuse and say so.
+
+## Tests
+
+```bash
+./Scripts/build.sh --unit-only            # 188 unit tests, fast, no GUI
+./Scripts/build.sh --ui-only              # 5 UI tests, ~5 min, takes the screen
+./Scripts/build.sh --test-only            # both layers
+
+./Scripts/build.sh -u -f 'PathSafety'     # one unit suite
+./Scripts/build.sh -U -f 'SmokeTests'     # one UI test class
+```
+
+Two layers, because they catch different things:
+
+| Layer | Tool | Covers |
+| --- | --- | --- |
+| Core | `swift test` — `MyMacCoreTests` | metrics maths, collectors, `PathSafety`, the cleanup engine and catalog, the uninstaller, sampling cost |
+| App | `swift test` — `MyMacUIUnitTests` | `MetricsStore` scopes, menu bar drawing, the login item, sorting, the icon cache, the launch contract |
+| Interface | `MyMacUITests` (XCUITest) | that clicking a column header really re-orders the rows, and that the window opens where it was asked to |
+
+There are deliberately few UI tests. They cost minutes where the unit tests cost
+seconds and they take over the screen, so anything that can be pinned
+deterministically one layer down belongs one layer down. The uninstaller's
+Others tab is the clearest case: switching to it makes the app measure every
+installed package, spawning a package manager per entry, and XCUITest answers no
+query until the app goes idle — a UI test there does not run slowly, it hangs.
+Its ordering is pinned in `UninstallerSortingTests` instead.
+
+The interface layer exists because the other two provably could not catch a real
+bug. `UninstallerModel`'s ordering is pinned by unit tests that pass, yet
+clicking a header in the running app has repeatedly failed to sort — the defect
+sits in the `Table`'s binding, between the click and the model, which is the one
+stretch no `swift test` can reach.
+
+UI tests drive the real window. `-MyMacUITesting YES` promotes the app from
+`LSUIElement` to `.regular` so there is something to activate, freezes sampling
+so the app goes idle where XCUITest can query it, and
+`-MyMacUITestSection uninstaller` opens it straight onto a section.
 
 Licensed under the MIT licence; see `LICENSE`.
 

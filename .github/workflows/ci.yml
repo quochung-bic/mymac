@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # The branch is master. This said `main` for its whole life, so no push has
+    # ever built.
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
@@ -10,47 +12,75 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # GitHub already sets CI=true, so this is not what makes the gate in
+  # CleanupScannerTests fire. It is here so the intent is readable and so
+  # `CI=1 ./Scripts/build.sh --unit-only` reproduces a CI run exactly.
+  CI: "1"
+
 jobs:
-  test:
-    name: Build and test
+  unit:
+    name: Unit tests
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       - name: Toolchain
-        run: swift --version
+        run: |
+          xcodebuild -version
+          swift --version
 
-      # Warnings are not tolerated here: the tree builds clean under Swift 6
-      # strict concurrency today, and the cheapest way to keep it that way is to
-      # notice the first one rather than the fortieth.
-      - name: Build (debug, warnings as errors)
+      # Warnings become errors HERE and nowhere else. The workflow pins the
+      # toolchain; a newer Xcode on a contributor's laptop must not break their
+      # build over code they never touched, which is why Configs/Base.xcconfig
+      # deliberately does not set -Werror.
+      - name: Build warnings-clean
         run: swift build -c debug -Xswiftc -warnings-as-errors
 
-      # A handful of tests read the machine they run on. Setting CI skips the
-      # one that needs a developer's real package-manager caches; everything
-      # else works on a clean runner.
-      - name: Test
-        env:
-          CI: "1"
-        run: swift test
+      - name: Unit tests
+        run: ./Scripts/build.sh --unit-only
 
-  universal:
+  app:
     name: Universal binary
     runs-on: macos-15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      # The whole point of supporting Intel is that a bundle built anywhere runs
-      # everywhere, so both slices are built and the result is checked rather
-      # than assumed.
-      - name: Assemble MyMac.app
-        run: ./Scripts/build-app.sh release
+      # build.sh fails by itself if a Release build is not arm64 + x86_64.
+      - name: Build the app
+        run: ./Scripts/build.sh --release --quiet
 
-      - name: Verify both architectures are present
-        run: |
-          lipo -info build/MyMac.app/Contents/MacOS/MyMac
-          lipo -info build/MyMac.app/Contents/MacOS/MyMac | grep -q x86_64
-          lipo -info build/MyMac.app/Contents/MacOS/MyMac | grep -q arm64
+      - name: Report the architectures
+        run: lipo -info build/MyMac.app/Contents/MacOS/MyMac
 
       - name: Verify the bundle is signed and well formed
         run: codesign --verify --verbose=2 build/MyMac.app
+
+  ui:
+    name: UI tests (advisory)
+    runs-on: macos-15
+    timeout-minutes: 40
+    # Advisory, not a gate. A hosted runner has a virtual display at a fixed
+    # size and nobody to dismiss a system prompt, and this app's interface
+    # reaches Full Disk Access, CoreLocation and the installed-software list.
+    # A red run here means "reproduce it locally", not "block the merge".
+    # Promote this to required once it has been green for a stretch.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Keep the screen awake
+        run: defaults -currentHost write com.apple.screensaver idleTime 0
+
+      - name: UI tests
+        run: ./Scripts/build.sh --ui-only
+
+      - name: Upload the result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult-ui-${{ github.run_id }}
+          path: build/DerivedData/TestResults.xcresult
+          if-no-files-found: ignore
