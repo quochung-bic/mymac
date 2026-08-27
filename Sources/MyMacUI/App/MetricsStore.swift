@@ -71,6 +71,13 @@ final class MetricsStore {
     /// Fast enough to feel live, slow enough to stay invisible in Activity
     /// Monitor. Widened to three seconds when only the menu bar is watching.
     private var interval: Duration {
+        // XCUITest waits for the application to go idle before it answers a
+        // query. A view tree that redraws once a second never goes idle, so
+        // every query times out — the readout, the sparklines and the process
+        // table would each keep the app permanently busy. One sample lands
+        // before the first sleep, which is all a test needs; after that the
+        // tree holds still.
+        if LaunchEnvironment.isUITesting { return .seconds(3600) }
         let base = scopes[.detail, default: 0] > 0 ? 1.0 : 3.0
         // Read straight from defaults: the settings page and the store then have
         // no wiring between them to keep in step.
@@ -83,8 +90,17 @@ final class MetricsStore {
     }
 
     func retain(_ scope: Scope) {
+        let isNewScope = scopes[scope, default: 0] == 0
         scopes[scope, default: 0] += 1
-        if loop == nil { start() }
+        if loop == nil {
+            start()
+        } else if isNewScope {
+            // The loop is mid-sleep, so a scope joining now would show nothing
+            // until the next tick — up to three seconds of empty process table
+            // after opening the page, and under a UI test's frozen interval,
+            // an hour. Sample immediately instead.
+            Task { await tick() }
+        }
     }
 
     func release(_ scope: Scope) {

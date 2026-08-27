@@ -139,6 +139,10 @@ enum DockPolicy {
     }
 
     static func reviewAfterWindowClose() {
+        // Demoting mid-run would pull the app out from under the test runner:
+        // XCUITest holds a reference to a `.regular` application, and an
+        // accessory app with no window cannot be activated again.
+        guard !LaunchEnvironment.isUITesting else { return }
         // Run after the close completes so the closing window is not counted.
         DispatchQueue.main.async {
             if !hasOrdinaryWindow {
@@ -250,7 +254,10 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         readout
-            .onAppear { store.setMenuBarActive(isActive) }
+            .onAppear {
+                store.setMenuBarActive(isActive)
+                openWindowForUITesting()
+            }
             .onChange(of: isActive) { _, active in store.setMenuBarActive(active) }
             .onChange(of: appState.requestCount) { handleRequest() }
     }
@@ -286,6 +293,19 @@ private struct MenuBarLabel: View {
         openWindow(id: MainWindow.identifier)
         DockPolicy.activate()
     }
+
+    /// Opens the window a UI test came to look at.
+    ///
+    /// This runs from the menu bar label rather than from `AppDelegate` for the
+    /// same reason every other request does: `openWindow` is only reachable
+    /// from a view, and this label is the one view guaranteed to be alive.
+    /// Driving it through `handleRequest()` also means the test exercises the
+    /// exact path a user's menu bar click takes, promotion order included.
+    private func openWindowForUITesting() {
+        guard LaunchEnvironment.isUITesting else { return }
+        appState.pendingSection = LaunchEnvironment.testSection
+        handleRequest()
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -316,6 +336,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// macOS restored — already exists to be closed.
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.info("MyMac launched")
+        // A UI test needs the opposite of this: a window that stays open and an
+        // app that stays `.regular`, or XCUIApplication has nothing to activate
+        // and every query fails. The test run opens its own window from the
+        // menu bar label, so leave both alone here.
+        guard !LaunchEnvironment.isUITesting else { return }
         DispatchQueue.main.async {
             for window in NSApp.windows where window.isVisible && window.canBecomeMain {
                 Log.app.info("closing a window opened at launch; this app starts in the menu bar")
