@@ -2,11 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "MyMac",
+    name: "MyMacKit",
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "MyMac", targets: ["MyMac"]),
         .library(name: "MyMacCore", targets: ["MyMacCore"]),
+        // Vended so the Xcode app target can link the app layer. The
+        // executable stays a single line; this is what it links too.
+        .library(name: "MyMacUI", targets: ["MyMacUI"]),
     ],
     targets: [
         .target(
@@ -33,7 +36,7 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
-            name: "MyMacUITests",
+            name: "MyMacUIUnitTests",
             dependencies: ["MyMacUI"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

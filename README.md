@@ -74,7 +74,7 @@ The app is a library and the executable is a single line for one reason: SwiftPM
 cannot link a test target against an executable, and leaving the app layer
 untested is what let a login-item message that erased itself and a timeout that
 could never fire both ship. `Tests/MyMacCoreTests` covers the core,
-`Tests/MyMacUITests` covers the models, the sampling lifecycle and the menu bar
+`Tests/MyMacUIUnitTests` covers the models, the sampling lifecycle and the menu bar
 drawing.
 
 Two rules keep this honest: the core never imports AppKit or SwiftUI, and the UI
