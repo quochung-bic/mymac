@@ -97,13 +97,34 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check before starting. `xcodebuild` still exists as a stub when only the
-# Command Line Tools are installed, and in that case it fails late with a
-# confusing licence message — so confirm it really points at a full Xcode.
-command -v xcodebuild >/dev/null 2>&1 || die "xcodebuild not found. Install Xcode 16 or newer."
-if ! xcodebuild -version >/dev/null 2>&1; then
-    die "xcodebuild is not usable. Point it at a full Xcode install:
-    sudo xcode-select -s /Applications/Xcode.app"
+# Check before starting, and say what is actually wrong.
+#
+# `xcodebuild` still exists as a stub when only the Command Line Tools are
+# installed, and every failure downstream of that names something the reader has
+# never heard of: SwiftPM says "xcbuild executable ... does not exist", and
+# xcodebuild itself talks about licences. Someone who had just cloned this hit
+# exactly that and had no way to tell it meant "install Xcode".
+#
+# Both branches are covered deliberately — Xcode absent, and Xcode present but
+# not selected — because telling someone with no Xcode to run `xcode-select` at
+# it just produces a second unhelpful error.
+if ! command -v xcodebuild >/dev/null 2>&1 || ! xcodebuild -version >/dev/null 2>&1; then
+    die "this needs the full Xcode, not just the Command Line Tools.
+
+    If Xcode is not installed, install it from the App Store (it is free), then
+    open it once so it can finish setting itself up.
+
+    If Xcode is already installed, point the command line tools at it:
+        sudo xcode-select -s /Applications/Xcode.app"
+fi
+
+# Swift 6 needs Xcode 16. Without this the failure is a tools-version error from
+# inside SwiftPM, which reads as a bug in the project rather than as "your Xcode
+# is too old". An unparseable version is not worth blocking on, so skip it.
+xcode_major="$(xcodebuild -version 2>/dev/null | sed -n '1s/^Xcode \([0-9][0-9]*\).*/\1/p')"
+if [[ -n "${xcode_major}" ]] && (( xcode_major < 16 )); then
+    die "Xcode $(xcodebuild -version | sed -n '1s/^Xcode //p') is too old.
+    This needs Xcode 16 or newer, for Swift 6."
 fi
 
 xcb() {

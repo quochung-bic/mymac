@@ -5,7 +5,10 @@ dependencies, no Electron, no web view.
 
 ## Install
 
-There is no installer and no release download. You build it:
+There is no installer and no release download. You build it, so you need
+**Xcode 16 or newer** installed first — the Command Line Tools on their own are
+not enough, and the error you get without Xcode does not say so. It is free on
+the App Store; open it once after installing so it can finish setting itself up.
 
 ```bash
 git clone https://github.com/quochung-bic/mymac.git
