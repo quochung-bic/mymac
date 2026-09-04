@@ -9,6 +9,13 @@ Nothing has been released yet, so everything so far sits under Unreleased.
 
 ### Added
 
+- **`--no-xcode`**, on both `build.sh` and `install.sh`. Builds a runnable
+  `MyMac.app` through SwiftPM alone, which the Command Line Tools can do without
+  Xcode — 4 GB of toolchain was a lot to ask for a 6 MB bundle. The result is
+  for the machine that built it: one architecture, no hardened runtime, no
+  entitlements, and it cannot run the UI tests. Build without the flag for a
+  copy meant for anyone else.
+
 - **UI tests.** `MyMacUITests` drives the real window through XCUITest, which
   is the only layer that can catch a defect between a click and the model.
   `-MyMacUITesting YES` promotes the app from `LSUIElement` to `.regular`,

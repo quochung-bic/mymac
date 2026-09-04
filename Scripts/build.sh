@@ -20,6 +20,14 @@ readonly UI_TEST_TARGET="MyMacUITests"
 readonly INSTALL_ENV_VAR="MYMAC_INSTALLING"
 readonly UNIT_FILTER_EXAMPLE="PathSafety"
 
+# --no-xcode support. The app layer lives in the MyMacUI library, so SwiftPM can
+# link a runnable executable out of it without Xcode; `mymac` is lower-cased so
+# it cannot collide with the Xcode application target.
+readonly SPM_PRODUCT="mymac"
+readonly INFO_PLIST="Resources/Info.plist"
+readonly APP_ICON="Resources/AppIcon.icns"
+readonly NO_XCODE_REASON=""
+
 install_hint() {
     cat <<EOF
 
@@ -42,6 +50,7 @@ run_ui=false
 build_app=true
 do_clean=false
 quiet=false
+no_xcode=false
 filter=""
 
 log()  { printf '\033[1m==>\033[0m %s\n' "$*"; }
@@ -64,6 +73,7 @@ Options:
   -U, --ui-only          Run only the UI tests and stop (takes over the screen)
   -f, --filter PATTERN   Narrow the tests. Unit: a regex over test names.
                          UI: Class, or Class/method.
+  -n, --no-xcode         Build with SwiftPM only, this Mac only, no Xcode needed
   -c, --clean            Delete derived data before building
   -o, --output DIR       Where to put ${APP_NAME}.app (default: ./build)
   -q, --quiet            Show only warnings, errors and test results
@@ -75,6 +85,7 @@ Examples:
   Scripts/build.sh --test-only                  # every test, then stop
   Scripts/build.sh -u -f '${UNIT_FILTER_EXAMPLE}'
   Scripts/build.sh -U -f 'SmokeTests'           # one UI test class
+  Scripts/build.sh --no-xcode                   # a runnable app without Xcode
 EOF
 }
 
@@ -88,6 +99,7 @@ while [[ $# -gt 0 ]]; do
         -U|--ui-only)   run_ui=true; build_app=false; shift ;;
         -f|--filter)    [[ $# -ge 2 ]] || die "--filter needs a pattern"
                         filter="$2"; shift 2 ;;
+        -n|--no-xcode)  no_xcode=true; shift ;;
         -c|--clean)     do_clean=true; shift ;;
         -o|--output)    [[ $# -ge 2 ]] || die "--output needs a directory"
                         output_dir="$2"; shift 2 ;;
@@ -96,6 +108,16 @@ while [[ $# -gt 0 ]]; do
         *)              usage >&2; die "unknown option: $1" ;;
     esac
 done
+
+# --no-xcode exists so nobody has to install several gigabytes of Xcode to
+# produce a few megabytes of bundle. It builds for this Mac alone, through
+# SwiftPM, which the Command Line Tools can do on their own.
+if [[ "${no_xcode}" == true ]]; then
+    [[ -n "${SPM_PRODUCT}" ]] || die "--no-xcode is not available in this project.
+    ${NO_XCODE_REASON}"
+    [[ "${run_ui}" == false ]] || die "--no-xcode cannot run the UI tests: XCUITest
+    is part of Xcode, and this mode exists for machines that do not have it."
+fi
 
 # Check before starting, and say what is actually wrong.
 #
@@ -108,7 +130,7 @@ done
 # Both branches are covered deliberately — Xcode absent, and Xcode present but
 # not selected — because telling someone with no Xcode to run `xcode-select` at
 # it just produces a second unhelpful error.
-if ! command -v xcodebuild >/dev/null 2>&1 || ! xcodebuild -version >/dev/null 2>&1; then
+if [[ "${no_xcode}" == false ]] && { ! command -v xcodebuild >/dev/null 2>&1 || ! xcodebuild -version >/dev/null 2>&1; }; then
     die "this needs the full Xcode, not just the Command Line Tools.
 
     If Xcode is not installed, install it from the App Store (it is free), then
@@ -121,10 +143,17 @@ fi
 # Swift 6 needs Xcode 16. Without this the failure is a tools-version error from
 # inside SwiftPM, which reads as a bug in the project rather than as "your Xcode
 # is too old". An unparseable version is not worth blocking on, so skip it.
-xcode_major="$(xcodebuild -version 2>/dev/null | sed -n '1s/^Xcode \([0-9][0-9]*\).*/\1/p')"
-if [[ -n "${xcode_major}" ]] && (( xcode_major < 16 )); then
-    die "Xcode $(xcodebuild -version | sed -n '1s/^Xcode //p') is too old.
+#
+# The whole probe is skipped under --no-xcode, and not merely its verdict: with
+# no Xcode installed `xcodebuild -version` fails, and a failing pipeline inside
+# a command substitution takes the script down under `set -e` with `pipefail` —
+# silently, before anything has been printed.
+if [[ "${no_xcode}" == false ]]; then
+    xcode_major="$(xcodebuild -version 2>/dev/null | sed -n '1s/^Xcode \([0-9][0-9]*\).*/\1/p' || true)"
+    if [[ -n "${xcode_major}" ]] && (( xcode_major < 16 )); then
+        die "Xcode $(xcodebuild -version | sed -n '1s/^Xcode //p') is too old.
     This needs Xcode 16 or newer, for Swift 6."
+    fi
 fi
 
 xcb() {
@@ -180,6 +209,42 @@ fi
 
 if [[ "${build_app}" != true ]]; then
     log "Tests green"
+    exit 0
+fi
+
+# SwiftPM cannot produce a bundle, only a bare Mach-O, so the .app is assembled
+# around it here. The result deliberately has no hardened runtime and no
+# entitlements — it is a build to run on this machine, not one to hand out.
+if [[ "${no_xcode}" == true ]]; then
+    spm_config="$(printf '%s' "${configuration}" | tr '[:upper:]' '[:lower:]')"
+    log "Building ${APP_NAME} (${configuration}, SwiftPM, this Mac only)"
+    swift build -c "${spm_config}" --package-path "${PACKAGE_PATH}" --product "${SPM_PRODUCT}"
+    bin_dir="$(swift build -c "${spm_config}" --package-path "${PACKAGE_PATH}" --show-bin-path)"
+
+    mkdir -p "${output_dir}"
+    final_app="${output_dir}/${APP_NAME}.app"
+    rm -rf "${final_app:?}"
+    mkdir -p "${final_app}/Contents/MacOS" "${final_app}/Contents/Resources"
+
+    # The product is lower-cased to stay out of the Xcode target's way, but the
+    # bundle executable has to match CFBundleExecutable in the Info.plist.
+    cp "${bin_dir}/${SPM_PRODUCT}" "${final_app}/Contents/MacOS/${APP_NAME}"
+    cp "${REPO_ROOT}/${INFO_PLIST}" "${final_app}/Contents/Info.plist"
+    printf 'APPL????' > "${final_app}/Contents/PkgInfo"
+    if [[ -f "${REPO_ROOT}/${APP_ICON}" ]]; then
+        cp "${REPO_ROOT}/${APP_ICON}" "${final_app}/Contents/Resources/"
+    fi
+
+    # No --deep: Apple deprecated it, and there is nothing nested here to sign.
+    codesign --force --sign - "${final_app}" >/dev/null 2>&1 \
+        || warn "ad-hoc signing failed; the app will still run on this machine"
+
+    log "Built ${final_app}"
+    printf '    configuration : %s\n' "${configuration}"
+    printf '    architectures : %s\n' "$(lipo -archs "${final_app}/Contents/MacOS/${APP_NAME}")"
+    warn "This is a --no-xcode build: one architecture, no hardened runtime and
+         no entitlements. Fine for running here; build without --no-xcode to
+         produce the universal bundle that gets handed to someone else."
     exit 0
 fi
 

@@ -27,6 +27,9 @@ Source, comments and documentation are **written in English**. Keep it that way.
 # both layers
 ./Scripts/build.sh --test-only
 
+# a runnable app without installing Xcode — SwiftPM only, this Mac only
+./Scripts/build.sh --no-xcode
+
 # one suite or one test
 ./Scripts/build.sh -u -f 'PathSafety'
 ./Scripts/build.sh -U -f 'SmokeTests'
@@ -137,7 +140,17 @@ pbxproj edit**.
 
 - **TCC grants are tied to the code signature, and the build signs ad-hoc.** Full
   Disk Access must be re-granted after every install and `SMAppService` refuses
-  Open at Login. Neither is a bug; do not "fix" either.
+  Open at Login. Neither is a bug; do not "fix" either. The signature genuinely
+  differs between builds — two builds of one commit gave CDHash `3000f49c…` and
+  `95f21efc…` — so this is not something a second build path made worse.
+
+- **`--no-xcode` is a second bundle shape, deliberately.** It is assembled by
+  hand around a SwiftPM binary: one architecture, no hardened runtime, no
+  entitlements. It exists so nobody needs 4 GB of Xcode to run a 6 MB app. Do
+  not hand its output to anyone else, and do not try to make it the release
+  path. The SwiftPM product is named `mymac` in lower case so it cannot collide
+  with the Xcode application target — two `MyMac` products in one build graph is
+  what made `TEST_TARGET_NAME` resolve to the wrong one and broke every UI test.
 
 ### Things that are easy to get wrong *in the UI tests*
 

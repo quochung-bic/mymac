@@ -28,6 +28,7 @@ fi
 run_tests=false
 build_app=true
 quiet=false
+no_xcode=false
 
 log()  { printf '\033[1m==>\033[0m %s\n' "$1"; }
 warn() { printf '\033[33mwarning:\033[0m %s\n' "$1" >&2; }
@@ -44,11 +45,16 @@ Options:
   -d, --destination DIR   Install somewhere else (default: /Applications)
   -t, --test              Run every test before building
   -n, --no-build          Install the existing build/${APP_NAME}.app as-is
+  -X, --no-xcode          Build with SwiftPM only, for this Mac, no Xcode needed
   -q, --quiet             Show only warnings, errors and test results
   -h, --help              Print this help
 
 --destination is for experimenting rather than an equal alternative: macOS
 only treats /Applications as a trusted location for a login item.
+
+--no-xcode installs a build for this Mac alone, made without Xcode. Use it to
+run the app on your own machine; a copy meant for someone else should be built
+without it, so it carries both architectures.
 EOF
 }
 
@@ -58,6 +64,7 @@ while [[ $# -gt 0 ]]; do
                           destination="$2"; shift 2 ;;
         -t|--test)        run_tests=true; shift ;;
         -n|--no-build)    build_app=false; shift ;;
+        -X|--no-xcode)    no_xcode=true; shift ;;
         -q|--quiet)       quiet=true; shift ;;
         -h|--help)        usage; exit 0 ;;
         *)                usage >&2; die "unknown option: $1" ;;
@@ -74,6 +81,7 @@ if [[ "${build_app}" == true ]]; then
     build_args=(--release)
     [[ "${run_tests}" == true ]] && build_args+=(--test)
     [[ "${quiet}" == true ]] && build_args+=(--quiet)
+    [[ "${no_xcode}" == true ]] && build_args+=(--no-xcode)
     "${REPO_ROOT}/Scripts/build.sh" "${build_args[@]}"
 fi
 

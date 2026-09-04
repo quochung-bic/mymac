@@ -5,16 +5,26 @@ dependencies, no Electron, no web view.
 
 ## Install
 
-There is no installer and no release download. You build it, so you need
-**Xcode 16 or newer** installed first — the Command Line Tools on their own are
-not enough, and the error you get without Xcode does not say so. It is free on
-the App Store; open it once after installing so it can finish setting itself up.
+There is no installer and no release download. You build it:
 
 ```bash
 git clone https://github.com/quochung-bic/mymac.git
 cd mymac
 ./Scripts/install.sh          # builds, then puts MyMac.app in /Applications
 ```
+
+That needs **Xcode 16 or newer** — the Command Line Tools on their own are not
+enough. If you only want to run the app and would rather not install several
+gigabytes of Xcode to produce six megabytes of bundle:
+
+```bash
+./Scripts/install.sh --no-xcode
+```
+
+`--no-xcode` builds through SwiftPM, which the Command Line Tools can do alone.
+The result runs on the Mac that built it and nowhere else: one architecture, no
+hardened runtime, no entitlements. A copy meant for somebody else should be
+built without the flag, so it carries both architectures.
 
 `./Scripts/install.sh --destination ~/Applications` installs for one user
 instead, and `--test` runs the whole suite first. `--help` lists every option.
@@ -36,13 +46,16 @@ leaves behind is `~/Library/Preferences/com.mymac.app.plist`.
 open build/MyMac.app
 
 ./Scripts/build.sh --debug       # host architecture only, faster
+./Scripts/build.sh --no-xcode    # SwiftPM only, no Xcode required
 ./Scripts/build.sh --test-only   # every test, then stop
 ./Scripts/build.sh --help        # every option
 ```
 
 Requires **Xcode 16+** / Swift 6 — the full Xcode, not just the command line
 tools, because the app and its UI tests are built with `xcodebuild`. Deployment
-target is macOS 14.
+target is macOS 14. `--no-xcode` is the exception: it goes through SwiftPM and
+needs only the command line tools, at the cost of a single-architecture bundle
+with no hardened runtime, and it cannot run the UI tests.
 
 The bundle is a **universal binary** — arm64 and x86_64 — so a copy built on
 one kind of Mac runs on the other. Nothing in the source is conditional on the
