@@ -11,11 +11,9 @@ set -euo pipefail
 
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# ---- Repo configuration — the ONLY part that differs between MyMac and Caffeinate ----
 readonly APP_NAME="MyMac"
 readonly BUNDLE_ID="com.mymac.app"
 readonly INSTALL_ENV_VAR="MYMAC_INSTALLING"
-# ---- END CONFIG — everything below is kept byte-identical with the other repo ----
 
 # MYMAC_DEST is the old interface, kept working because the README published it.
 # Deprecated in favour of --destination; it will go in a later release.
