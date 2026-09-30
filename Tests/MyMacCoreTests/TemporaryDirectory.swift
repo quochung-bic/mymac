@@ -30,6 +30,18 @@ struct TemporaryDirectory: ~Copyable {
         return target
     }
 
+    /// A runnable script, for tests that need a stand-in package manager.
+    @discardableResult
+    func makeExecutable(_ relativePath: String, script: String,
+                        interpreter: String = "/bin/sh") throws -> URL {
+        let target = url.appendingPathComponent(relativePath)
+        try FileManager.default.createDirectory(at: target.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try "#!\(interpreter)\n\(script)\n".write(to: target, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: target.path)
+        return target
+    }
+
     @discardableResult
     func makeSymlink(_ relativePath: String, to destination: URL) throws -> URL {
         let target = url.appendingPathComponent(relativePath)

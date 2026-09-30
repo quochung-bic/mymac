@@ -36,13 +36,17 @@ public struct InstalledItem: Sendable, Identifiable, Hashable {
     public let location: URL
     /// Applications only; the key every leftover is found by.
     public let bundleIdentifier: String?
+    /// The Homebrew cask behind this row: on an application, the cask that put
+    /// the bundle there; on a Caskroom row, the cask itself.
+    public let cask: Cask?
     /// `nil` until measured — sizes are computed after the list appears, so a
     /// folder like /Applications does not have to be walked before anything can
     /// be shown.
     public var size: Int64?
 
     public init(id: String, name: String, version: String?, source: InstalledSource,
-                location: URL, bundleIdentifier: String? = nil, size: Int64? = nil) {
+                location: URL, bundleIdentifier: String? = nil, size: Int64? = nil,
+                cask: Cask? = nil) {
         self.id = id
         self.name = name
         self.version = version
@@ -50,6 +54,21 @@ public struct InstalledItem: Sendable, Identifiable, Hashable {
         self.location = location
         self.bundleIdentifier = bundleIdentifier
         self.size = size
+        self.cask = cask
+    }
+
+    /// A bundle Homebrew put in place. Trashing it by hand leaves brew sure it
+    /// is still installed, so removal goes through `brew uninstall --cask`.
+    public struct Cask: Sendable, Hashable {
+        public let token: String
+        /// `Caskroom/<token>`: where brew keeps its record, and what picks the
+        /// right `brew` when an arm64 and an x86_64 Homebrew both exist.
+        public let record: URL
+
+        public init(token: String, record: URL) {
+            self.token = token
+            self.record = record
+        }
     }
 
     /// What the second column shows: where an application lives, or which
@@ -201,12 +220,38 @@ public enum PackageEcosystem: String, Sendable, CaseIterable, Identifiable {
         return ([executable.path] + uninstallArguments(for: package)).joined(separator: " ")
     }
 
+    /// Why this manager's tool will certainly refuse, found without running
+    /// it. `nil` when there is no such reason and the tool should be asked.
+    ///
+    /// Only an externally managed Python qualifies today: its pip refuses every
+    /// uninstall, and what it prints is advice about installing into a virtual
+    /// environment — nothing that helps someone trying to remove a package.
+    public func refusal(home: URL, near location: URL? = nil) -> String? {
+        guard self == .python,
+              let pip = CommandRunner.firstExecutable(among: executables(home: home, near: location))
+        else { return nil }
+
+        // A pip for another Python cannot see this package at all, whatever
+        // that other Python allows — so the mismatch is the reason to give.
+        if let theirs = PythonEnvironment.version(ofPip: pip),
+           let ours = location.flatMap(PythonEnvironment.version(ofSitePackagesAt:)),
+           theirs != ours {
+            return "The only pip this app found runs Python \(theirs), and this package belongs to Python \(ours), so it cannot remove it."
+        }
+
+        guard PythonEnvironment.isExternallyManaged(pip: pip) else { return nil }
+        return "This Python is marked as externally managed (PEP 668), so pip refuses to remove anything from it. Packages here were installed by Homebrew or with --break-system-packages, and have to be removed the same way."
+    }
+
     /// The tool's own uninstall command. Removing a package's files by hand
     /// would leave the manager's own bookkeeping inconsistent, so this is the
     /// one place the app runs an external program.
     public func uninstallArguments(for package: String) -> [String] {
         switch self {
-        case .homebrew: ["uninstall", "--formula", package]
+        // `--force` is brew's spelling of "every installed version". Without
+        // it only the linked keg goes, brew exits 0 with "… is still
+        // installed", and the row the user removed is still there.
+        case .homebrew: ["uninstall", "--formula", "--force", package]
         case .homebrewCask: ["uninstall", "--cask", package]
         case .npm: ["uninstall", "--global", package]
         case .pnpm: ["remove", "--global", package]

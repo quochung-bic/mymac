@@ -47,7 +47,7 @@ swift Scripts/GenerateAppIcon.swift
 lipo -info build/MyMac.app/Contents/MacOS/MyMac
 ```
 
-The finish line is always green: **188 unit tests + 5 UI tests, and no
+The finish line is always green: **219 unit tests + 5 UI tests, and no
 warnings**.
 
 Local `./Scripts/build.sh --test-only` is authoritative. The UI job in CI is
@@ -173,10 +173,11 @@ pbxproj edit**.
   with nobody to dismiss it hangs the run until the job timeout.
 
 - **Do not write a UI test for the uninstaller's Others tab.** Switching to it
-  measures every installed package, spawning a package manager per entry, and
-  XCUITest answers no query until the app goes idle — the test does not run
-  slowly, it hangs, including the wait that was meant to let it settle. Cover
-  that tab in `UninstallerSortingTests`, where it costs milliseconds.
+  measures every installed package — hundreds of directory walks, no subprocess
+  anywhere — and XCUITest answers no query until the app goes idle, so the test
+  does not run slowly, it hangs, including the wait that was meant to let it
+  settle. Cover that tab in `UninstallerSortingTests`, where it costs
+  milliseconds.
 
 - **Scope every query.** `descendants(matching: .any)` from the application
   walks the whole accessibility tree on every snapshot; against a few dozen rows

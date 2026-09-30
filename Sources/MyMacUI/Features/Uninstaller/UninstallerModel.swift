@@ -73,9 +73,19 @@ final class UninstallerModel {
     var selectedLeftovers: Set<String> = []
     private(set) var isPreparing = false
     private(set) var isRemoving = false
+    /// Worked out once when the sheet opens. Both read the disk — resolving an
+    /// executable, reading a pip's shebang — and the sheet's body runs again on
+    /// every toggle and every size that lands.
+    private(set) var pendingCommand: String?
+    private(set) var pendingRefusal: String?
 
     private let home = FileManager.default.homeDirectoryForCurrentUser
     private var work: Task<Void, Never>?
+    /// Which measuring run owns `isSizing`. A cancelled run can be parked
+    /// inside a single long `measure` call and only notice afterwards, so
+    /// without this it clears the flag its replacement has already set — and
+    /// the size column starts re-sorting under the pointer mid-measurement.
+    private var sizingGeneration = 0
 
     /// Ecosystems present, for the filter shown alongside the package list.
     var sources: [String] {
@@ -141,14 +151,36 @@ final class UninstallerModel {
         leftovers.filter { selectedLeftovers.contains($0.id) }.reduce(0) { $0 + $1.size }
     }
 
-    var pendingTotalBytes: Int64 { (pending?.size ?? 0) + selectedLeftoverBytes }
+    /// Read back from the list, not from the snapshot the sheet opened on:
+    /// sizes land after the list does, and a sheet opened before its row was
+    /// measured would otherwise offer to remove a gigabyte and call it zero.
+    var pendingTotalBytes: Int64 { (currentPending?.size ?? 0) + selectedLeftoverBytes }
 
-    /// The exact command that will run for a package, with the executable
-    /// resolved on this machine. `nil` for applications, which run nothing, and
-    /// for a manager whose tool is not installed where this app looks for it.
+    /// The pending item with whatever the list knows about it now.
+    private var currentPending: InstalledItem? {
+        guard let pending else { return nil }
+        return items.first { $0.id == pending.id } ?? pending
+    }
+
+    /// The exact command that will run, with the executable resolved on this
+    /// machine: a package's own manager, or `brew uninstall --cask` for an
+    /// application a cask installed. `nil` for any other application, which
+    /// runs nothing, and for a manager whose tool is not installed where this
+    /// app looks for it.
     func uninstallCommand(for item: InstalledItem) -> String? {
+        if let cask = item.cask {
+            return PackageEcosystem.homebrewCask
+                .resolvedUninstallCommand(for: cask.token, home: home, near: cask.record)
+        }
         guard case .package(let ecosystem) = item.source else { return nil }
         return ecosystem.resolvedUninstallCommand(for: item.name, home: home, near: item.location)
+    }
+
+    /// Why the manager will certainly refuse this package, known before
+    /// anything runs. The sheet shows this instead of a command.
+    func uninstallRefusal(for item: InstalledItem) -> String? {
+        guard case .package(let ecosystem) = item.source else { return nil }
+        return ecosystem.refusal(home: home, near: item.location)
     }
 
     /// Uninstalling an app while it is running leaves half of it in memory and
@@ -173,6 +205,9 @@ final class UninstallerModel {
         AppIconCache.forget()
         let home = home
 
+        sizingGeneration += 1
+        let generation = sizingGeneration
+
         work = Task(priority: .utility) {
             let applications = ApplicationCatalog.scan(home: home)
             let packages = PackageCatalog.scan(home: home)
@@ -180,21 +215,23 @@ final class UninstallerModel {
                 self.items = applications + packages
                 self.isLoading = false
             }
-            await self.measureSizes()
+            await self.measureSizes(generation: generation)
         }
     }
 
     /// Sizes arrive after the list does. Walking forty application bundles takes
     /// seconds, and there is no reason to make the user stare at a spinner for
     /// them when the names are already known.
-    private func measureSizes() async {
+    private func measureSizes(generation: Int) async {
         await MainActor.run { self.isSizing = true }
         let snapshot = await MainActor.run { self.items }
         var measured: [String: Int64] = [:]
 
         for (index, item) in snapshot.enumerated() {
             if Task.isCancelled { break }
-            measured[item.id] = UninstallService.measure(item)
+            // Left unset when there is nothing to measure, so the row keeps
+            // showing "…" rather than claiming a size of zero.
+            if let size = UninstallService.measure(item) { measured[item.id] = size }
             // Publish in batches so the list is not rebuilt once per bundle.
             if index % 8 == 7 || index == snapshot.count - 1 {
                 let batch = measured
@@ -202,7 +239,10 @@ final class UninstallerModel {
                 await Task.yield()
             }
         }
-        await MainActor.run { self.isSizing = false }
+        await MainActor.run {
+            guard self.sizingGeneration == generation else { return }
+            self.isSizing = false
+        }
     }
 
     private func apply(sizes: [String: Int64]) {
@@ -217,6 +257,8 @@ final class UninstallerModel {
         pending = item
         leftovers = []
         selectedLeftovers = []
+        pendingCommand = uninstallCommand(for: item)
+        pendingRefusal = uninstallRefusal(for: item)
         guard item.source == .application else { return }
 
         isPreparing = true
@@ -239,6 +281,8 @@ final class UninstallerModel {
         pending = nil
         leftovers = []
         selectedLeftovers = []
+        pendingCommand = nil
+        pendingRefusal = nil
     }
 
     func toggle(_ leftover: CleanupItem) {
@@ -252,7 +296,7 @@ final class UninstallerModel {
     // MARK: - Removal
 
     func confirm() {
-        guard let item = pending, !isRemoving else { return }
+        guard let item = currentPending, !isRemoving else { return }
         isRemoving = true
         let chosen = leftovers.filter { selectedLeftovers.contains($0.id) }
         let service = UninstallService(home: home)
@@ -263,6 +307,8 @@ final class UninstallerModel {
                 self.isRemoving = false
                 self.pending = nil
                 self.leftovers = []
+                self.pendingCommand = nil
+                self.pendingRefusal = nil
                 self.summary = Summary(
                     name: item.name,
                     trashed: outcome.trashedCount,
@@ -270,8 +316,22 @@ final class UninstallerModel {
                     toolOutput: outcome.toolOutput?.isEmpty == false ? outcome.toolOutput : nil,
                     failures: outcome.failures.map { "\($0.path): \($0.reason)" }
                 )
-                if outcome.succeeded { self.items.removeAll { $0.id == item.id } }
+                // Keyed on the item's own fate: a support file that could not
+                // be trashed does not put the application back, and leaving the
+                // row behind invites a second uninstall of something gone.
+                if outcome.removedTheItemItself { self.forget(item) }
             }
+        }
+    }
+
+    /// Drops a removed item's row, and the other row of a cask with it: the
+    /// bundle under Applications and the record under Others are one install,
+    /// and whichever tab removed it, both are gone.
+    func forget(_ item: InstalledItem) {
+        let record = item.cask?.record.standardizedFileURL
+        items.removeAll { candidate in
+            candidate.id == item.id
+                || (record != nil && candidate.cask?.record.standardizedFileURL == record)
         }
     }
 

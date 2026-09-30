@@ -133,3 +133,80 @@ struct UninstallerSortingTests {
     }
 
 }
+
+/// The confirmation sheet opens on whatever the row holds at that moment, and
+/// sizes land afterwards. Reading the size from the snapshot froze it at "not
+/// measured yet", so the sheet offered to remove a gigabyte and called it zero.
+@MainActor
+@Suite("Uninstaller confirmation total")
+struct UninstallerPendingTotalTests {
+    private let package = InstalledItem(
+        id: "npm:/tmp/left-pad", name: "left-pad", version: nil, source: .package(.npm),
+        location: URL(fileURLWithPath: "/tmp/left-pad")
+    )
+
+    @Test func followsASizeThatArrivesAfterTheSheetOpened() {
+        let model = UninstallerModel()
+        model.replaceItemsForTesting([package])
+        model.prepare(package)
+
+        var measured = package
+        measured.size = 5_000
+        model.replaceItemsForTesting([measured])
+
+        #expect(model.pendingTotalBytes == 5_000)
+    }
+
+    @Test func fallsBackToTheSnapshotWhenTheRowIsGone() {
+        let model = UninstallerModel()
+        var measured = package
+        measured.size = 4_096
+        model.replaceItemsForTesting([measured])
+        model.prepare(measured)
+        model.replaceItemsForTesting([])
+
+        #expect(model.pendingTotalBytes == 4_096)
+    }
+}
+
+/// A cask shows up twice: its bundle under Applications and its record under
+/// Others. Removing either removes both, so neither row may outlive the other.
+@MainActor
+@Suite("Uninstaller cask rows")
+struct UninstallerCaskRowTests {
+    private let record = URL(fileURLWithPath: "/opt/homebrew/Caskroom/android-studio")
+    private var application: InstalledItem {
+        InstalledItem(id: "app:/Applications/Android Studio.app", name: "Android Studio",
+                      version: nil, source: .application,
+                      location: URL(fileURLWithPath: "/Applications/Android Studio.app"),
+                      bundleIdentifier: "com.google.android.studio",
+                      cask: .init(token: "android-studio", record: record))
+    }
+    private var caskRow: InstalledItem {
+        InstalledItem(id: "homebrewCask:\(record.path)", name: "android-studio", version: "2026.1",
+                      source: .package(.homebrewCask), location: record,
+                      cask: .init(token: "android-studio", record: record))
+    }
+    private let unrelated = InstalledItem(
+        id: "app:/Applications/Zed.app", name: "Zed", version: nil, source: .application,
+        location: URL(fileURLWithPath: "/Applications/Zed.app")
+    )
+
+    @Test func removingTheApplicationAlsoDropsItsRowUnderOthers() {
+        let model = UninstallerModel()
+        model.replaceItemsForTesting([application, caskRow, unrelated])
+
+        model.forget(application)
+
+        #expect(model.items.map(\.id) == [unrelated.id])
+    }
+
+    @Test func removingTheCaskUnderOthersAlsoDropsItsApplicationRow() {
+        let model = UninstallerModel()
+        model.replaceItemsForTesting([application, caskRow, unrelated])
+
+        model.forget(caskRow)
+
+        #expect(model.items.map(\.id) == [unrelated.id])
+    }
+}

@@ -77,7 +77,7 @@ toggle will refuse and say so.
 ## Tests
 
 ```bash
-./Scripts/build.sh --unit-only            # 188 unit tests, fast, no GUI
+./Scripts/build.sh --unit-only            # 219 unit tests, fast, no GUI
 ./Scripts/build.sh --ui-only              # 5 UI tests, ~5 min, takes the screen
 ./Scripts/build.sh --test-only            # both layers
 
@@ -474,6 +474,17 @@ disk in a documented shape, so the app reads that directly: Homebrew's
 shelling out, cannot break when a tool changes its output format, and works even
 when the tool is missing from the app's `PATH`.
 
+Homebrew formulae are narrowed to the ones **you asked for that nothing else
+needs** — what `brew leaves --installed-on-request` answers, read from each keg's
+`INSTALL_RECEIPT.json`. The Cellar holds every dependency ever pulled in: on the
+machine this was written on, 65 of 84 formulae were needed by something else,
+and offering to remove one could only end in "required by …". An orphaned
+dependency is left to `brew autoremove`; a receipt that cannot say why a formula
+was installed keeps it listed. The receipts also keep third-party-tap formulae
+that `brew leaves` leaves out even though nothing depends on them. Removing a
+formula removes every installed version of it (`--force`), since the row stands
+for the formula rather than its newest keg.
+
 Yarn needed the manifest rather than the directory: Yarn v1 hoists every
 transitive dependency into one flat `node_modules`, so reading the directory
 reported **347** packages instead of the 6 the user actually installed — and
@@ -487,8 +498,28 @@ Names are validated against a conservative character set anyway, a leading `-` i
 refused so a name can never be mistaken for a flag, and the exact command is
 shown in the confirmation sheet before it runs.
 
-Applications are pure AppKit: the bundle and its selected support files go to the
-**Trash**, never straight out. Leftovers are found by bundle identifier across
+A status of 0 is not taken as proof. Every manager here has a path that exits 0
+having done nothing — `npm` answers "up to date", `pip` "Skipping … as it is not
+installed" — whenever the tool resolved is not the one that owns the row's
+prefix. The package's location is checked afterwards, and one still on disk is
+reported as a failure rather than a removal.
+
+A Python marked **externally managed** (PEP 668) — Homebrew's is — refuses every
+`pip uninstall`. That is read from disk before anything runs, and the sheet says
+so instead of offering a command that can only fail.
+
+Applications are listed from `/Applications`, `/Applications/Utilities` and
+`~/Applications`, plus one product folder down — `/Applications/Python 3.11/IDLE.app`
+— but never inside another bundle, where a helper app is part of its host.
+
+An application's bundle and its selected support files go to the **Trash**,
+never straight out. The exception is a bundle a **Homebrew cask** put there:
+trashing it by hand leaves brew sure it is still installed, so it goes through
+`brew uninstall --cask`, shown in the sheet like any other command. The cask is
+recognised by the symlink brew keeps in its `Caskroom` record, not by comparing
+names, and removing it from either tab removes both rows. Support files are
+touched only once the bundle is really gone — an app that is still installed
+keeps its settings. Leftovers are found by bundle identifier across
 the twelve places macOS keeps per-app state, plus Group Containers, whose names
 carry a team identifier in front of the bundle identifier. Two further folders —
 `Application Support/<name>` and `Logs/<name>` — are matched on the app's

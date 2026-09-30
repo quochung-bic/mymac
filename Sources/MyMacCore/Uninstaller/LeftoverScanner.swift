@@ -22,7 +22,7 @@ public enum LeftoverScanner {
         let library = home.appendingPathComponent("Library")
         var candidates: [URL] = []
 
-        if let bundleIdentifier = item.bundleIdentifier, !bundleIdentifier.isEmpty {
+        if let bundleIdentifier = item.bundleIdentifier, isUsableAsOneComponent(bundleIdentifier) {
             candidates += [
                 library.appendingPathComponent("Application Support/\(bundleIdentifier)"),
                 library.appendingPathComponent("Caches/\(bundleIdentifier)"),
@@ -44,10 +44,12 @@ public enum LeftoverScanner {
         }
 
         // Two folders where apps conventionally use their display name.
-        candidates += [
-            library.appendingPathComponent("Application Support/\(item.name)"),
-            library.appendingPathComponent("Logs/\(item.name)"),
-        ]
+        if isUsableAsOneComponent(item.name) {
+            candidates += [
+                library.appendingPathComponent("Application Support/\(item.name)"),
+                library.appendingPathComponent("Logs/\(item.name)"),
+            ]
+        }
 
         var results: [CleanupItem] = []
         var seen = Set<String>()
@@ -67,6 +69,16 @@ public enum LeftoverScanner {
             ))
         }
         return results.sorted { $0.size > $1.size }
+    }
+
+    /// Both the display name and the bundle identifier are read from the
+    /// bundle's own `Info.plist`, so they are the app's strings rather than the
+    /// user's, and both get pasted straight into a path. One carrying a
+    /// separator names a folder further down that is still inside an allowed
+    /// root — `Google/Chrome` resolves to a real profile — so nothing below
+    /// here would refuse it.
+    private static func isUsableAsOneComponent(_ value: String) -> Bool {
+        !value.isEmpty && !value.contains("/") && value != "." && value != ".."
     }
 
     private static func matches(in directory: URL, containing needle: String) -> [URL] {

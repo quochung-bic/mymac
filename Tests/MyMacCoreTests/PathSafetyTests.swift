@@ -118,6 +118,62 @@ struct PathSafetyTests {
         #expect(PathSafety.isDescendant("/a/b/c", of: "/a/b/"))
     }
 
+    /// An application bundle sits two components below the volume root, so the
+    /// cleaner's floor of three refused every single one of them.
+    @Test func acceptsAnApplicationBundleDirectlyInsideApplications() throws {
+        let applications = URL(fileURLWithPath: "/Applications")
+        let contents = (try? FileManager.default.contentsOfDirectory(
+            at: applications, includingPropertiesForKeys: [.isSymbolicLinkKey]
+        )) ?? []
+        guard let bundle = contents.first(where: {
+            $0.pathExtension == "app"
+                && (try? $0.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink != true
+        }) else { return }
+
+        let canonical = try PathSafety.canonicalPathForRemoval(
+            of: bundle,
+            allowedRoots: [applications],
+            minimumDepth: PathSafety.minimumApplicationDepth
+        )
+        #expect(canonical == bundle.path)
+    }
+
+    /// The floor of two exists for `/Applications/Xcode.app`. A product folder
+    /// such as `/Applications/Python 3.11` sits at the same depth and is not a
+    /// bundle; nor is `/Library/Fonts`, which exists on every Mac.
+    @Test func lowersTheDepthFloorForApplicationBundlesOnly() {
+        #expect(throws: PathSafety.Violation.tooShallow) {
+            try PathSafety.canonicalPathForRemoval(
+                of: URL(fileURLWithPath: "/Library/Fonts"),
+                allowedRoots: [URL(fileURLWithPath: "/Library")],
+                minimumDepth: PathSafety.minimumApplicationDepth,
+                home: FileManager.default.homeDirectoryForCurrentUser
+            )
+        }
+    }
+
+    /// Refused twice over — it is not a bundle, and it is protected — and
+    /// which rule answers first does not matter, only that it never passes.
+    @Test func refusesAProtectedDirectoryAtTheApplicationDepth() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        #expect(throws: PathSafety.Violation.self) {
+            try PathSafety.canonicalPathForRemoval(
+                of: home,
+                allowedRoots: [home.deletingLastPathComponent()],
+                minimumDepth: PathSafety.minimumApplicationDepth,
+                home: home
+            )
+        }
+    }
+
+    /// The only direct child of an uninstaller root that is not itself an
+    /// application bundle. With the bundle depth floor at two, nothing but the
+    /// protected set stands between it and a removal.
+    @Test func theUtilitiesFolderIsProtectedFromRemoval() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        #expect(PathSafety.protectedDirectories(home: home).contains("/Applications/Utilities"))
+    }
+
     @Test func everyCatalogRootIsProtectedFromRemoval() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let protectedPaths = PathSafety.protectedDirectories(home: home)

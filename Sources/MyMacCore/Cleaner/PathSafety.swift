@@ -65,6 +65,8 @@ public enum PathSafety {
         var paths: Set<String> = [
             "/", "/System", "/Library", "/Applications", "/usr", "/bin", "/sbin",
             "/etc", "/var", "/private", "/tmp", "/opt", "/Users", "/Volumes", "/cores",
+            // An uninstaller root in its own right, and so never a target.
+            "/Applications/Utilities",
         ]
         let homeRelative = [
             "", "Documents", "Desktop", "Downloads", "Pictures", "Movies", "Music",
@@ -103,26 +105,43 @@ public enum PathSafety {
     /// never be a legitimate cleanup target.
     public static let minimumDepth = 3
 
+    /// An application bundle is one component inside the folder it was
+    /// installed in — `/Applications/Xcode.app` — so the uninstaller validates
+    /// a bundle against a floor of two. Only a path ending in `.app` gets it;
+    /// `/Applications` itself stays protected, and the bundle must still sit
+    /// strictly inside a folder applications are installed in.
+    public static let minimumApplicationDepth = 2
+
     /// Validates `url` against `allowedRoots` and returns the canonical path to
     /// delete. Throws rather than returning an optional so the caller cannot
     /// accidentally ignore the result.
     public static func canonicalPathForRemoval(
         of url: URL,
         allowedRoots: [URL],
+        minimumDepth: Int = PathSafety.minimumDepth,
         home: URL = FileManager.default.homeDirectoryForCurrentUser
     ) throws -> String {
-        try canonicalPathForRemoval(of: url, allowedRoots: allowedRoots, context: Context(home: home))
+        try canonicalPathForRemoval(of: url, allowedRoots: allowedRoots,
+                                    minimumDepth: minimumDepth, context: Context(home: home))
     }
 
     public static func canonicalPathForRemoval(
         of url: URL,
         allowedRoots: [URL],
+        minimumDepth: Int = PathSafety.minimumDepth,
         context: Context
     ) throws -> String {
         let standardized = url.standardizedFileURL
         guard standardized.path.hasPrefix("/") else { throw Violation.notAbsolute }
         guard !standardized.pathComponents.contains("..") else { throw Violation.traversal }
-        guard standardized.pathComponents.count - 1 >= minimumDepth else { throw Violation.tooShallow }
+        let depth = standardized.pathComponents.count - 1
+        guard depth >= minimumDepth else { throw Violation.tooShallow }
+        // A floor below the default exists for application bundles alone. A
+        // product folder such as `/Applications/Python 3.11` sits at the same
+        // depth and must still clear the default one.
+        guard depth >= Self.minimumDepth || standardized.pathExtension == "app" else {
+            throw Violation.tooShallow
+        }
 
         // lstat, not stat: a symlink must be recognised as a symlink and
         // rejected, never silently followed to whatever it points at.

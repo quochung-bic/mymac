@@ -46,14 +46,59 @@ public enum PackageCatalog {
         nodePackages(in: root, ecosystem: ecosystem)
     }
 
+    static func scanVersionedForTesting(root: URL, ecosystem: PackageEcosystem) -> [InstalledItem] {
+        versionedPackages(in: root, ecosystem: ecosystem)
+    }
+
     // MARK: - Layouts
 
     private static func versionedPackages(in root: URL, ecosystem: PackageEcosystem) -> [InstalledItem] {
-        children(of: root).compactMap { url in
-            let versions = children(of: url).map(\.lastPathComponent).sorted()
-            return item(name: url.lastPathComponent, version: versions.last,
-                        location: url, ecosystem: ecosystem)
+        // Numeric, not lexical: spelled out, "3.14.10" sorts before "3.14.7".
+        let packages = children(of: root).map { url in
+            (url: url, newest: children(of: url).map(\.lastPathComponent)
+                .max { $0.localizedStandardCompare($1) == .orderedAscending })
         }
+        let listed = ecosystem == .homebrew ? formulaeAskedFor(packages) : nil
+        return packages.compactMap { package in
+            if let listed, !listed.contains(package.url.lastPathComponent) { return nil }
+            return item(name: package.url.lastPathComponent, version: package.newest,
+                        location: package.url, ecosystem: ecosystem)
+        }
+    }
+
+    /// Formulae the user asked for that nothing else installed needs — what
+    /// `brew leaves --installed-on-request` answers, read from each keg's
+    /// receipt rather than by running brew. The Cellar holds every dependency
+    /// ever pulled in, and offering to remove one only ends in "required by …".
+    ///
+    /// That also leaves out an orphan — pulled in as a dependency, no longer
+    /// needed — which is `brew autoremove`'s job rather than this list's.
+    ///
+    /// A formula whose receipt is missing, unreadable or silent on why it was
+    /// installed is kept: hiding what cannot be judged would make an installed
+    /// formula look removed.
+    private static func formulaeAskedFor(_ packages: [(url: URL, newest: String?)]) -> Set<String> {
+        var receipts: [String: [String: Any]] = [:]
+        for package in packages {
+            guard let newest = package.newest,
+                  let data = try? Data(contentsOf: package.url
+                      .appendingPathComponent(newest).appendingPathComponent("INSTALL_RECEIPT.json")),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { continue }
+            receipts[package.url.lastPathComponent] = json
+        }
+
+        // `full_name` carries the tap for anything outside homebrew/core.
+        let needed = Set(receipts.values.flatMap { receipt in
+            (receipt["runtime_dependencies"] as? [[String: Any]] ?? []).compactMap {
+                ($0["full_name"] as? String)?.split(separator: "/").last.map(String.init)
+            }
+        })
+
+        return Set(packages.map(\.url.lastPathComponent).filter { name in
+            guard let receipt = receipts[name] else { return true }
+            return (receipt["installed_on_request"] as? Bool ?? true) && !needed.contains(name)
+        })
     }
 
     private static func nodePackages(in root: URL, ecosystem: PackageEcosystem) -> [InstalledItem] {
@@ -121,7 +166,8 @@ public enum PackageCatalog {
                              ecosystem: PackageEcosystem) -> InstalledItem {
         InstalledItem(id: "\(ecosystem.rawValue):\(location.standardizedFileURL.path)",
                       name: name, version: version,
-                      source: .package(ecosystem), location: location)
+                      source: .package(ecosystem), location: location,
+                      cask: ecosystem == .homebrewCask ? .init(token: name, record: location) : nil)
     }
 
     private static func packageVersion(at url: URL) -> String? {

@@ -55,7 +55,9 @@ struct UninstallerView: View {
                     }
                     .width(150)
                     TableColumn("Size", value: \.sizeSortValue) { item in
-                        Text(item.size.map(Format.bytes) ?? "…")
+                        // "…" while measurements are still landing; "—" once
+                        // they are done and this one had nothing to measure.
+                        Text(item.size.map(Format.bytes) ?? (model.isSizing ? "…" : "—"))
                             .monospacedDigit()
                             .foregroundStyle(item.size == nil ? .tertiary : .primary)
                             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -191,7 +193,11 @@ private struct ConfirmSheet: View {
 
     private var applicationDetail: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Moving to the Trash")
+            if item.cask != nil {
+                packageDetail(.homebrewCask)
+            }
+
+            Text(item.cask == nil ? "Moving to the Trash" : "Then moving to the Trash")
                 .font(.sectionLabel)
                 .foregroundStyle(.secondary)
 
@@ -241,7 +247,7 @@ private struct ConfirmSheet: View {
     @ViewBuilder
     private func packageDetail(_ ecosystem: PackageEcosystem) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(model.uninstallCommand(for: item) == nil ? "Cannot Run" : "Running")
+            Text(model.pendingCommand == nil || model.pendingRefusal != nil ? "Cannot Run" : "Running")
                 .font(.sectionLabel)
                 .foregroundStyle(.secondary)
 
@@ -250,7 +256,11 @@ private struct ConfirmSheet: View {
             // bookkeeping consistent, and the user is entitled to see precisely
             // what will run — which means the real program and its real path,
             // not the name this app happens to file the manager under.
-            if let command = model.uninstallCommand(for: item) {
+            if let refusal = model.pendingRefusal {
+                Label(refusal, systemImage: "exclamationmark.triangle")
+                    .font(.note)
+                    .foregroundStyle(.orange)
+            } else if let command = model.pendingCommand {
                 Text(command)
                     .font(.system(size: 11, design: .monospaced))
                     .textSelection(.enabled)
@@ -258,7 +268,7 @@ private struct ConfirmSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: 5).fill(Color(nsColor: .quaternaryLabelColor)))
             } else {
-                Label("\(ecosystem.title) is not installed anywhere this app looks, so it cannot remove this package. Removing the files by hand would leave \(ecosystem.title)'s own records inconsistent.",
+                Label("\(ecosystem.title) is not installed anywhere this app looks, so it cannot remove this. Removing the files by hand would leave \(ecosystem.title)'s own records inconsistent.",
                       systemImage: "exclamationmark.triangle")
                     .font(.note)
                     .foregroundStyle(.orange)
@@ -266,11 +276,12 @@ private struct ConfirmSheet: View {
         }
     }
 
-    /// An application can always be moved to the Trash. A package can only be
-    /// removed by the manager that installed it, so with the tool missing there
-    /// is nothing to confirm.
+    /// An application can always be moved to the Trash. A package — or an
+    /// application a cask installed — can only be removed by the manager that
+    /// installed it, so with the tool missing there is nothing to confirm.
     private var canUninstall: Bool {
-        item.source == .application || model.uninstallCommand(for: item) != nil
+        guard model.pendingRefusal == nil else { return false }
+        return (item.source == .application && item.cask == nil) || model.pendingCommand != nil
     }
 }
 
