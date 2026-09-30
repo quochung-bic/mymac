@@ -47,7 +47,7 @@ swift Scripts/GenerateAppIcon.swift
 lipo -info build/MyMac.app/Contents/MacOS/MyMac
 ```
 
-The finish line is always green: **219 unit tests + 5 UI tests, and no
+The finish line is always green: **220 unit tests + 5 UI tests, and no
 warnings**.
 
 Local `./Scripts/build.sh --test-only` is authoritative. The UI job in CI is

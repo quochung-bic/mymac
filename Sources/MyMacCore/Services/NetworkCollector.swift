@@ -74,7 +74,10 @@ public final class NetworkCollector {
         guard monitor == nil else { return }
         let monitor = NWPathMonitor()
         self.monitor = monitor
-        monitor.pathUpdateHandler = { path in
+        // Weak here, not only on the Task below: this handler is owned by the
+        // monitor the collector owns, so a strong capture is a cycle that only
+        // `stop()` breaks.
+        monitor.pathUpdateHandler = { [weak self] path in
             // Extract plain values on the monitor queue; only `Sendable`
             // primitives cross back onto the metrics actor.
             let satisfied = path.status == .satisfied

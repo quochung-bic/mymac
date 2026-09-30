@@ -89,6 +89,28 @@ struct NetworkMonitorLifecycleTests {
         await collector.stop()
     }
 
+    /// The collector owns the monitor, the monitor owns its path handler, and
+    /// the handler captured the collector strongly — `[weak self]` sat on the
+    /// `Task` inside it, which weakened nothing. A collector dropped without
+    /// `stop()` could never be freed.
+    @Test func aCollectorDroppedWithoutStoppingIsReleased() async throws {
+        weak var released: NetworkCollector?
+        do {
+            let collector = await MetricsActor.run { NetworkCollector() }
+            await collector.start()
+            // Let the handler run at least once, so its capture is exercised.
+            _ = await awaitConnected(collector)
+            released = collector
+        }
+
+        // A Task the handler already scheduled may still be in flight.
+        let deadline = ContinuousClock().now.advanced(by: .seconds(2))
+        while released != nil, ContinuousClock().now < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(released == nil, "the path handler must not keep its collector alive")
+    }
+
     /// Even without an explicit `start()`, a sample re-arms the monitor. This is
     /// what makes a late `stop()` from an already-cancelled sampling loop
     /// self-correcting instead of permanent.

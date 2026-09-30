@@ -77,7 +77,7 @@ toggle will refuse and say so.
 ## Tests
 
 ```bash
-./Scripts/build.sh --unit-only            # 219 unit tests, fast, no GUI
+./Scripts/build.sh --unit-only            # 220 unit tests, fast, no GUI
 ./Scripts/build.sh --ui-only              # 5 UI tests, ~5 min, takes the screen
 ./Scripts/build.sh --test-only            # both layers
 
