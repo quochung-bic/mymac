@@ -199,6 +199,31 @@ struct StatRow: View {
     }
 }
 
+struct ThermalBadge: View {
+    let level: ThermalLevel
+
+    var body: some View {
+        Text(level.label)
+            .font(.badge)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.15)))
+            .foregroundStyle(color)
+            .fixedSize()
+            .help(level.explanation)
+            .accessibilityLabel(level.explanation)
+    }
+
+    private var color: Color {
+        switch level {
+        case .nominal: .secondary
+        case .fair: .yellow
+        case .serious: .orange
+        case .critical: .red
+        }
+    }
+}
+
 struct PressureBadge: View {
     let pressure: MemoryPressure
 

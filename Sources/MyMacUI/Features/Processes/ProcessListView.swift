@@ -31,6 +31,7 @@ struct ProcessListView: View {
         switch first.keyPath {
         case \ProcessSample.cpuSortValue: return (.cpu, ascending)
         case \ProcessSample.memorySortValue: return (.memory, ascending)
+        case \ProcessSample.diskSortValue: return (.disk, ascending)
         case \ProcessSample.name: return (.name, !ascending)
         case \ProcessSample.id: return (.pid, !ascending)
         default: return (.cpu, ascending)
@@ -93,6 +94,13 @@ struct ProcessListView: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .width(92)
+            TableColumn("Disk", value: \.diskSortValue) { process in
+                Text(process.diskRate.map(Format.throughput) ?? "—")
+                    .monospacedDigit()
+                    .foregroundStyle(process.diskRate == nil ? .tertiary : .primary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .width(86)
             TableColumn("Type") { process in
                 Text(process.kind.rawValue).foregroundStyle(.secondary)
             }

@@ -35,6 +35,7 @@ final class MetricsStore {
     private(set) var battery: BatteryStats?
     private(set) var network: NetworkStats?
     private(set) var processes: [ProcessSample] = []
+    private(set) var thermal: ThermalLevel = .nominal
     /// Processes behaving unusually, refreshed alongside the process list.
     private(set) var alerts: [ProcessAlert] = []
 
@@ -164,6 +165,8 @@ final class MetricsStore {
         cpu = sample.cpu
         memory = sample.memory
         network = sample.network
+        let level = ThermalLevel(ProcessInfo.processInfo.thermalState)
+        if level != thermal { thermal = level }
 
         cpuWindow.append(sample.cpu.usage)
         memoryWindow.append(sample.memory.usedFraction)

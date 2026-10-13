@@ -17,6 +17,8 @@ public final class ProcessCollector {
         /// Mach absolute time ticks, not nanoseconds — see `cpuSeconds`.
         var totalTicks: UInt64
         var timestamp: ContinuousClock.Instant
+        /// Bytes read plus written over the process's life.
+        var diskBytes: UInt64
     }
 
     /// `proc_pid_rusage` reports CPU time in mach absolute time units, despite
@@ -65,11 +67,13 @@ public final class ProcessCollector {
 
             var cpuUsage: Double?
             var footprint: UInt64?
+            var diskRate: Double?
 
             if let usage = Self.resourceUsage(pid: pid) {
                 let total = usage.ri_user_time &+ usage.ri_system_time
                 footprint = usage.ri_phys_footprint
-                nextPrevious[pid] = CPUTimeSample(totalTicks: total, timestamp: now)
+                let disk = usage.ri_diskio_bytesread &+ usage.ri_diskio_byteswritten
+                nextPrevious[pid] = CPUTimeSample(totalTicks: total, timestamp: now, diskBytes: disk)
 
                 if let old = previous[pid] {
                     let duration = now - old.timestamp
@@ -77,6 +81,9 @@ public final class ProcessCollector {
                         + Double(duration.components.attoseconds) / 1e18
                     if elapsed > 0.05, total >= old.totalTicks {
                         cpuUsage = Self.cpuSeconds(ticks: total - old.totalTicks) / elapsed
+                    }
+                    if elapsed > 0.05, disk >= old.diskBytes {
+                        diskRate = Double(disk - old.diskBytes) / elapsed
                     }
                 } else if let lifetime = Self.lifetimeSeconds(usage: usage), lifetime > 0.5 {
                     // First time we see this process: its average CPU use over
@@ -94,7 +101,8 @@ public final class ProcessCollector {
                 kind: kind,
                 cpuUsage: cpuUsage.map { min(coreCount, max(0, $0)) },
                 memoryFootprint: footprint,
-                isResponding: true
+                isResponding: true,
+                diskRate: diskRate
             ))
         }
 

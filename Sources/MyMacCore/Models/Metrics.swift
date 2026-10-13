@@ -298,13 +298,10 @@ public struct NetworkInterfaceStats: Sendable, Equatable, Identifiable {
 
 /// Radio conditions for a Wi-Fi link.
 ///
-/// The network name is deliberately absent: macOS now gates the SSID behind
-/// Location Services, and asking for a location permission to display one label
-/// is not a trade this app makes. Everything here needs no permission at all.
+/// The network name is deliberately absent: macOS gates the SSID behind
+/// Location Services, and the name is one click away in the system menu.
+/// Everything here needs no permission at all.
 public struct WiFiSignal: Sendable, Equatable {
-    /// The joined network's name, which macOS releases only once Location has
-    /// been granted. `nil` otherwise, and the interface says why.
-    public let networkName: String?
     /// Received signal strength in dBm; roughly −30 (excellent) to −90 (unusable).
     public let rssi: Int
     /// Noise floor in dBm.
@@ -335,9 +332,8 @@ public struct WiFiSignal: Sendable, Equatable {
         min(1, max(0, Double(rssi + 90) / 55))
     }
 
-    public init(networkName: String? = nil, rssi: Int, noise: Int, transmitRate: Double,
+    public init(rssi: Int, noise: Int, transmitRate: Double,
                 channel: Int, band: String, channelWidth: Int) {
-        self.networkName = networkName
         self.rssi = rssi
         self.noise = noise
         self.transmitRate = transmitRate
@@ -435,6 +431,9 @@ public struct ProcessSample: Sendable, Equatable, Identifiable {
     public let cpuUsage: Double?
     public let memoryFootprint: UInt64?
     public let isResponding: Bool
+    /// Bytes per second read plus written, from the kernel's per-process disk
+    /// counters. `nil` until two samples exist, or when the kernel refused.
+    public let diskRate: Double?
 
     public var pid: pid_t { id }
 
@@ -447,25 +446,28 @@ public struct ProcessSample: Sendable, Equatable, Identifiable {
     /// column points.
     public var cpuSortValue: Double { cpuUsage ?? -1 }
     public var memorySortValue: UInt64 { memoryFootprint ?? 0 }
+    public var diskSortValue: Double { diskRate ?? -1 }
 
     public init(id: pid_t, name: String, kind: Kind, cpuUsage: Double?,
-                memoryFootprint: UInt64?, isResponding: Bool) {
+                memoryFootprint: UInt64?, isResponding: Bool, diskRate: Double? = nil) {
         self.id = id
         self.name = name
         self.kind = kind
         self.cpuUsage = cpuUsage
         self.memoryFootprint = memoryFootprint
         self.isResponding = isResponding
+        self.diskRate = diskRate
     }
 }
 
 public enum ProcessSortKey: String, Sendable, CaseIterable, Identifiable {
-    case cpu, memory, name, pid
+    case cpu, memory, disk, name, pid
     public var id: String { rawValue }
     public var label: String {
         switch self {
         case .cpu: "CPU"
         case .memory: "Memory"
+        case .disk: "Disk"
         case .name: "Name"
         case .pid: "PID"
         }
@@ -485,6 +487,8 @@ public enum ProcessSorter {
                 return unreadableLast(lhs, rhs, \.cpuUsage, reversed: reversed)
             case .memory:
                 return unreadableLast(lhs, rhs, \.memoryFootprint, reversed: reversed)
+            case .disk:
+                return unreadableLast(lhs, rhs, \.diskRate, reversed: reversed)
             case .name:
                 return reversed ? nameOrder(rhs, lhs) : nameOrder(lhs, rhs)
             case .pid:

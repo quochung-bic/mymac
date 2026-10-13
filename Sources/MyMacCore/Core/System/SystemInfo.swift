@@ -17,12 +17,20 @@ public struct SystemInfo: Sendable {
     public let physicalMemory: UInt64
     public let bootTime: Date
     public let operatingSystem: String
+    /// Build identifier such as "24B83"; `nil` if the kernel does not report one.
+    public let osBuild: String?
 
     public var uptime: TimeInterval { max(0, Date().timeIntervalSince(bootTime)) }
 
     public var coreSummary: String {
         guard performanceCores > 0, efficiencyCores > 0 else { return "\(logicalCores) cores" }
         return "\(performanceCores)P + \(efficiencyCores)E"
+    }
+
+    /// "Mac14,5 · macOS 15.1 (24B83) · 32 GB" — what to quote in a bug report.
+    public var identitySummary: String {
+        let system = osBuild.map { "\(operatingSystem) (\($0))" } ?? operatingSystem
+        return [model, system, Format.bytes(physicalMemory)].joined(separator: " · ")
     }
 
     public static let current = SystemInfo()
@@ -37,6 +45,7 @@ public struct SystemInfo: Sendable {
         physicalMemory = ProcessInfo.processInfo.physicalMemory
         bootTime = Sysctl.bootTime() ?? Date()
         let version = ProcessInfo.processInfo.operatingSystemVersion
+        osBuild = Sysctl.string("kern.osversion")
         operatingSystem = "macOS \(version.majorVersion).\(version.minorVersion)"
     }
 }

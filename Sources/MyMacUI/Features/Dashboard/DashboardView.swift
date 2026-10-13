@@ -49,7 +49,11 @@ struct CPUCard: View {
              fillsHeight: true,
              onOpen: { AppState.shared.selectSection(.cpu) }) {
             if let cpu = store.cpu {
-                CardValue(value: Format.percent(cpu.usage))
+                HStack(alignment: .firstTextBaseline) {
+                    CardValue(value: Format.percent(cpu.usage))
+                    Spacer(minLength: 6)
+                    if store.thermal != .nominal { ThermalBadge(level: store.thermal) }
+                }
                 Sparkline(values: store.cpuHistory, tint: .forUsage(cpu.usage), maximum: 1)
                     .frame(maxHeight: .infinity)
                 HStack(spacing: 14) {

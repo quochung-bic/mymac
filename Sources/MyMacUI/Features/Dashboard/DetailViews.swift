@@ -13,9 +13,19 @@ struct CPUDetailView: View {
                  accessory: "\(system.coreSummary) · up \(Format.uptime(system.uptime))",
                  fillsHeight: true) {
                 if let cpu = store.cpu {
-                    CardValue(value: Format.percent(cpu.usage), caption: "in use", size: 30)
+                    HStack(alignment: .firstTextBaseline) {
+                        CardValue(value: Format.percent(cpu.usage), caption: "in use", size: 30)
+                        Spacer(minLength: 6)
+                        ThermalBadge(level: store.thermal)
+                    }
                     Sparkline(values: store.cpuHistory, tint: .forUsage(cpu.usage), maximum: 1)
                         .frame(maxHeight: .infinity)
+                    Text(system.identitySummary)
+                        .font(.note)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
                 } else {
                     PlaceholderRows(count: 4)
                 }
@@ -365,9 +375,6 @@ struct NetworkDetailView: View {
                            value: "\(signal.channel) · \(signal.band)"
                                + (signal.channelWidth > 0 ? " · \(signal.channelWidth) MHz" : ""))
                 Spacer(minLength: 0)
-                Text("The network name needs Location access, which this app does not ask for.")
-                    .font(.note)
-                    .foregroundStyle(.secondary)
             }
         }
     }

@@ -69,3 +69,19 @@ struct ProcessTableSortingTests {
         }
     }
 }
+
+@MainActor
+@Suite("Process table disk column")
+struct ProcessTableDiskColumnTests {
+    @Test func descendingDiskIsTheSorterSNaturalOrder() {
+        let result = ProcessListView.sorting(for: [KeyPathComparator(\.diskSortValue, order: .reverse)])
+        #expect(result.key == .disk)
+        #expect(result.reversed == false)
+    }
+
+    @Test func ascendingDiskFlipsIt() {
+        let result = ProcessListView.sorting(for: [KeyPathComparator(\.diskSortValue, order: .forward)])
+        #expect(result.key == .disk)
+        #expect(result.reversed)
+    }
+}
