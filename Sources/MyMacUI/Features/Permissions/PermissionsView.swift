@@ -13,22 +13,43 @@ import SwiftUI
 @Observable
 final class PermissionsModel: NSObject, CLLocationManagerDelegate {
     private(set) var statuses: [Permission.Kind: PermissionStatus] = [:]
+    /// Full Disk Access was granted once and is gone now. The build signs
+    /// ad-hoc, so every reinstall drops it without a word.
+    private(set) var fullDiskAccessLapsed = false
 
     @ObservationIgnored private let locationManager = CLLocationManager()
+    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let fullDiskAccessProbe: () -> PermissionStatus
+    private static let everGrantedKey = "fullDiskAccessEverGranted"
 
-    override init() {
+    init(defaults: UserDefaults = .standard,
+         fullDiskAccessProbe: @escaping () -> PermissionStatus = { FullDiskAccess.status() }) {
+        self.defaults = defaults
+        self.fullDiskAccessProbe = fullDiskAccessProbe
         super.init()
         locationManager.delegate = self
         refresh()
     }
 
     func refresh() {
-        statuses[.fullDiskAccess] = FullDiskAccess.status()
+        let fullDiskAccess = fullDiskAccessProbe()
+        if fullDiskAccess == .granted { defaults.set(true, forKey: Self.everGrantedKey) }
+        fullDiskAccessLapsed = fullDiskAccess == .denied && defaults.bool(forKey: Self.everGrantedKey)
+        statuses[.fullDiskAccess] = fullDiskAccess
         statuses[.location] = Self.locationStatus(locationManager.authorizationStatus)
     }
 
     func status(of kind: Permission.Kind) -> PermissionStatus {
         statuses[kind] ?? .notDetermined
+    }
+
+    func dismissFullDiskAccessLapse() {
+        defaults.set(false, forKey: Self.everGrantedKey)
+        fullDiskAccessLapsed = false
+    }
+
+    func openFullDiskAccessSettings() {
+        NSWorkspace.shared.open(FullDiskAccess.settingsURL)
     }
 
     /// Either raises the system prompt, or opens the pane where the user has to
@@ -42,7 +63,7 @@ final class PermissionsModel: NSObject, CLLocationManagerDelegate {
                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!)
             }
         case .fullDiskAccess:
-            NSWorkspace.shared.open(FullDiskAccess.settingsURL)
+            openFullDiskAccessSettings()
         }
     }
 
@@ -156,5 +177,39 @@ private struct StatusPill: View {
         case .denied: .orange
         case .notDetermined: .secondary
         }
+    }
+}
+
+/// Shown on the dashboard after a reinstall took Full Disk Access away. It
+/// clears itself the moment the permission is back, so nobody has to dismiss
+/// something that is already fixed.
+struct FullDiskAccessLapseBanner: View {
+    @Environment(PermissionsModel.self) private var model
+
+    var body: some View {
+        Group {
+            if model.fullDiskAccessLapsed {
+                HStack(spacing: 10) {
+                    Image(systemName: "lock.trianglebadge.exclamationmark")
+                        .foregroundStyle(.orange)
+                    Text("Full Disk Access was reset, which happens after every reinstall. Grant it again to clean Safari and Mail caches.")
+                        .font(.note)
+                        .lineLimit(2)
+                    Spacer(minLength: 8)
+                    Button("Open Settings…") { model.openFullDiskAccessSettings() }
+                    Button("Dismiss") { model.dismissFullDiskAccessLapse() }
+                        .buttonStyle(.link)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.12)))
+            }
+        }
+        // Granted in System Settings, so coming back to the app is the only
+        // signal there is.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refresh()
+        }
+        .onAppear { model.refresh() }
     }
 }

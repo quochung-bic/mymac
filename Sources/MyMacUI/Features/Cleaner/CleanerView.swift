@@ -111,6 +111,7 @@ struct CleanerView: View {
 
 private struct GroupRow: View {
     @Environment(CleanerModel.self) private var model
+    @Environment(PermissionsModel.self) private var permissions
     let group: CleanupGroup
     let isExpanded: Bool
     let toggleExpansion: () -> Void
@@ -168,9 +169,14 @@ private struct GroupRow: View {
             }
 
             if group.requiresFullDiskAccess {
-                Label("Needs Full Disk Access to read this location.", systemImage: "lock")
-                    .font(.note)
-                    .foregroundStyle(.orange)
+                HStack(spacing: 8) {
+                    Label("Needs Full Disk Access to read this location.", systemImage: "lock")
+                        .font(.note)
+                        .foregroundStyle(.orange)
+                    Button("Open Settings…") { permissions.openFullDiskAccessSettings() }
+                        .buttonStyle(.link)
+                        .font(.note)
+                }
             } else if !group.isAdvisory {
                 // Anything the scan could not do. Without this an unreadable
                 // location produced an empty group indistinguishable from a

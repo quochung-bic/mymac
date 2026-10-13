@@ -12,6 +12,8 @@ struct DashboardView: View {
 
     var body: some View {
         VStack(spacing: 12) {
+            FullDiskAccessLapseBanner()
+
             HStack(spacing: 12) {
                 CPUCard()
                 MemoryCard()
