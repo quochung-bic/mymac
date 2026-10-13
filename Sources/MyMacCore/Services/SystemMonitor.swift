@@ -11,6 +11,7 @@ public final class SystemMonitor {
         public let cpu: CPUStats
         public let memory: MemoryStats
         public let network: NetworkStats
+        public let gpus: [GPUStats]
     }
 
     public struct SlowSample: Sendable {
@@ -39,7 +40,8 @@ public final class SystemMonitor {
     public func sampleFast(includeRadio: Bool = false) -> FastSample {
         FastSample(cpu: cpu.sample(),
                    memory: memory.sample(),
-                   network: network.sample(includeRadio: includeRadio))
+                   network: network.sample(includeRadio: includeRadio),
+                   gpus: GPUCollector.readAll())
     }
 
     public func sampleSlow() -> SlowSample {

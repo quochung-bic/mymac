@@ -35,7 +35,11 @@ final class MetricsStore {
     private(set) var battery: BatteryStats?
     private(set) var network: NetworkStats?
     private(set) var processes: [ProcessSample] = []
+    /// The busiest GPU, which is the one a person asking "is the GPU the
+    /// bottleneck?" wants. `nil` on a Mac whose driver reports nothing.
+    var busiestGPU: GPUStats? { gpus.max { $0.utilization < $1.utilization } }
     private(set) var thermal: ThermalLevel = .nominal
+    private(set) var gpus: [GPUStats] = []
     /// Processes behaving unusually, refreshed alongside the process list.
     private(set) var alerts: [ProcessAlert] = []
 
@@ -165,6 +169,7 @@ final class MetricsStore {
         cpu = sample.cpu
         memory = sample.memory
         network = sample.network
+        if sample.gpus != gpus { gpus = sample.gpus }
         let level = ThermalLevel(ProcessInfo.processInfo.thermalState)
         if level != thermal { thermal = level }
 

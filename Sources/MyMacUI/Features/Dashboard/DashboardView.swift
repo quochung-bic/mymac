@@ -60,6 +60,9 @@ struct CPUCard: View {
                     InlineStat(label: "User", value: Format.percent(cpu.user))
                     InlineStat(label: "System", value: Format.percent(cpu.system))
                     InlineStat(label: "Idle", value: Format.percent(cpu.idle))
+                    if let gpu = store.busiestGPU {
+                        InlineStat(label: "GPU", value: Format.percent(gpu.utilization))
+                    }
                 }
             } else {
                 PlaceholderRows(count: 3)

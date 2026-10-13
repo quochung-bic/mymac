@@ -31,7 +31,7 @@ struct CPUDetailView: View {
                 }
             }
         } figures: {
-            TileCard(title: "Activity", symbol: "waveform.path.ecg", columns: 6, tiles: tiles)
+            TileCard(title: "Activity", symbol: "waveform.path.ecg", columns: tiles.count, tiles: tiles)
         } extra: {
             HStack(spacing: 12) {
                 distribution.frame(width: 250)
@@ -50,7 +50,7 @@ struct CPUDetailView: View {
             StatTile(label: "Load 1m", value: cpu.map { String(format: "%.2f", $0.loadAverage.oneMinute) } ?? "—"),
             StatTile(label: "Processes", value: cpu?.taskCount.map(Format.count) ?? "—"),
             StatTile(label: "Threads", value: cpu?.threadCount.map(Format.count) ?? "—"),
-        ]
+        ] + (store.busiestGPU.map { [StatTile(label: "GPU", value: Format.percent($0.utilization))] } ?? [])
     }
 
     private var distribution: some View {
