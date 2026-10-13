@@ -15,6 +15,8 @@ public actor UninstallService {
         /// Whether the thing the user pointed at is gone, regardless of what
         /// happened to its support files.
         public let removedTheItemItself: Bool
+        /// The bundle is owned by root, so only an administrator can trash it.
+        public var needsAdministrator = false
 
         public var succeeded: Bool { failures.isEmpty }
     }
@@ -29,19 +31,35 @@ public actor UninstallService {
         let minimumDepth: Int
     }
 
+    /// Moves a validated path to the Trash.
+    public typealias Trasher = @Sendable (String) throws -> Void
+
     private let home: URL
     private let fileManager: FileManager
+    private let trasher: Trasher
+    private let administratorTrasher: Trasher?
 
+    /// - Parameter administratorTrasher: how to trash a bundle the user cannot
+    ///   write to. The core has no UI, so whoever can ask for a password
+    ///   supplies this; without one an administrator-only removal is reported
+    ///   as a failure.
     public init(home: URL = FileManager.default.homeDirectoryForCurrentUser,
-                fileManager: FileManager = .default) {
+                fileManager: FileManager = .default,
+                trasher: Trasher? = nil,
+                administratorTrasher: Trasher? = nil) {
         self.home = home
         self.fileManager = fileManager
+        self.trasher = trasher ?? { path in
+            try FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
+        }
+        self.administratorTrasher = administratorTrasher
     }
 
-    public func uninstall(_ item: InstalledItem, leftovers: [CleanupItem]) async -> Outcome {
+    public func uninstall(_ item: InstalledItem, leftovers: [CleanupItem],
+                          asAdministrator: Bool = false) async -> Outcome {
         switch item.source {
         case .application:
-            return await removeApplication(item, leftovers: leftovers)
+            return await removeApplication(item, leftovers: leftovers, asAdministrator: asAdministrator)
         case .package(let ecosystem):
             return await removePackage(item, ecosystem: ecosystem)
         }
@@ -49,7 +67,8 @@ public actor UninstallService {
 
     // MARK: - Applications
 
-    private func removeApplication(_ item: InstalledItem, leftovers: [CleanupItem]) async -> Outcome {
+    private func removeApplication(_ item: InstalledItem, leftovers: [CleanupItem],
+                                   asAdministrator: Bool) async -> Outcome {
         let context = PathSafety.Context(home: home)
 
         // A cask's bundle goes back through Homebrew: trashing it by hand
@@ -60,10 +79,21 @@ public actor UninstallService {
             bundle = await runManager(.homebrewCask, package: cask.token,
                                       at: item.location, near: cask.record, size: item.size)
         } else {
-            bundle = trash(Target(url: item.location, size: item.size ?? 0,
-                                  roots: ApplicationCatalog.searchLocations(home: home),
-                                  minimumDepth: PathSafety.minimumApplicationDepth),
-                           context: context)
+            let target = Target(url: item.location, size: item.size ?? 0,
+                                roots: ApplicationCatalog.searchLocations(home: home),
+                                minimumDepth: PathSafety.minimumApplicationDepth)
+            if asAdministrator {
+                if let administratorTrasher {
+                    bundle = trash(target, context: context, using: administratorTrasher)
+                } else {
+                    bundle = Outcome(trashedCount: 0, reclaimedBytes: 0, toolOutput: nil,
+                                     failures: [.init(path: item.location.path,
+                                                      reason: "Removing with an administrator password is not available here.")],
+                                     removedTheItemItself: false)
+                }
+            } else {
+                bundle = trash(target, context: context, using: trasher, flagsAdministrator: true)
+            }
         }
 
         // Support files only once the application itself is gone. Trashing the
@@ -76,14 +106,15 @@ public actor UninstallService {
             )
             return Outcome(trashedCount: bundle.trashedCount, reclaimedBytes: bundle.reclaimedBytes,
                            toolOutput: bundle.toolOutput, failures: bundle.failures + [note],
-                           removedTheItemItself: false)
+                           removedTheItemItself: false,
+                           needsAdministrator: bundle.needsAdministrator)
         }
 
         let leftoverRoots = LeftoverScanner.searchRoots(home: home)
         let rest = leftovers.map {
             trash(Target(url: $0.url, size: $0.size, roots: leftoverRoots,
                          minimumDepth: PathSafety.minimumDepth),
-                  context: context)
+                  context: context, using: trasher)
         }
         return Outcome(trashedCount: bundle.trashedCount + rest.reduce(0) { $0 + $1.trashedCount },
                        reclaimedBytes: bundle.reclaimedBytes + rest.reduce(0) { $0 + $1.reclaimedBytes },
@@ -94,13 +125,14 @@ public actor UninstallService {
 
     /// Validates one path immediately before touching it, then moves it to the
     /// Trash. A path that has already gone counts as removed, not as a failure.
-    private func trash(_ target: Target, context: PathSafety.Context) -> Outcome {
+    private func trash(_ target: Target, context: PathSafety.Context, using remove: Trasher,
+                       flagsAdministrator: Bool = false) -> Outcome {
         do {
             let path = try PathSafety.canonicalPathForRemoval(
                 of: target.url, allowedRoots: target.roots,
                 minimumDepth: target.minimumDepth, context: context
             )
-            try fileManager.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
+            try remove(path)
             return Outcome(trashedCount: 1, reclaimedBytes: target.size, toolOutput: nil,
                            failures: [], removedTheItemItself: true)
         } catch let violation as PathSafety.Violation {
@@ -113,10 +145,16 @@ public actor UninstallService {
                            failures: [.init(path: target.url.path, reason: violation.reason)],
                            removedTheItemItself: false)
         } catch {
+            let denied = flagsAdministrator && Self.isPermissionDenied(error)
             return Outcome(trashedCount: 0, reclaimedBytes: 0, toolOutput: nil,
                            failures: [.init(path: target.url.path, reason: Self.describe(error))],
-                           removedTheItemItself: false)
+                           removedTheItemItself: false, needsAdministrator: denied)
         }
+    }
+
+    private nonisolated static func isPermissionDenied(_ error: Error) -> Bool {
+        guard let cocoa = error as? CocoaError else { return false }
+        return cocoa.code == .fileWriteNoPermission || cocoa.code == .fileReadNoPermission
     }
 
     /// Cocoa's error codes, in words a person can act on.
@@ -124,7 +162,7 @@ public actor UninstallService {
         guard let cocoa = error as? CocoaError else { return error.localizedDescription }
         switch cocoa.code {
         case .fileWriteNoPermission, .fileReadNoPermission:
-            return "Permission denied. Applications installed for all users may need an administrator."
+            return "Permission denied. This application was installed for all users, so removing it needs an administrator password."
         case .fileNoSuchFile:
             return "The item no longer exists."
         default:

@@ -12,12 +12,16 @@ final class UninstallerModel {
         var reclaimed: Int64
         var toolOutput: String?
         var failures: [String]
+        var canRetryAsAdministrator = false
+        /// The bundle that could not be removed, for "Show in Finder".
+        var revealPath: String?
     }
 
     private(set) var items: [InstalledItem] = []
     private(set) var isLoading = false
     private(set) var isSizing = false
     private(set) var summary: Summary?
+    private var retry: (item: InstalledItem, leftovers: [CleanupItem])?
 
     /// Applications and package-manager installs are different enough to
     /// deserve separate lists: one is a bundle you drag to the Trash with its
@@ -297,13 +301,31 @@ final class UninstallerModel {
 
     func confirm() {
         guard let item = currentPending, !isRemoving else { return }
+        run(item, leftovers: leftovers.filter { selectedLeftovers.contains($0.id) },
+            asAdministrator: false)
+    }
+
+    /// Runs the removal again with Finder doing the trashing, after the first
+    /// attempt reported a bundle only an administrator can move.
+    func retryAsAdministrator() {
+        guard let retry, !isRemoving else { return }
+        run(retry.item, leftovers: retry.leftovers, asAdministrator: true)
+    }
+
+    func revealInFinder(_ path: String) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+
+    private func run(_ item: InstalledItem, leftovers chosen: [CleanupItem], asAdministrator: Bool) {
         isRemoving = true
-        let chosen = leftovers.filter { selectedLeftovers.contains($0.id) }
-        let service = UninstallService(home: home)
+        summary = nil
+        retry = nil
+        let service = UninstallService(home: home, administratorTrasher: { try FinderTrash.trash($0) })
 
         Task(priority: .userInitiated) {
-            let outcome = await service.uninstall(item, leftovers: chosen)
+            let outcome = await service.uninstall(item, leftovers: chosen, asAdministrator: asAdministrator)
             await MainActor.run {
+                if outcome.needsAdministrator { self.retry = (item, chosen) }
                 self.isRemoving = false
                 self.pending = nil
                 self.leftovers = []
@@ -314,7 +336,9 @@ final class UninstallerModel {
                     trashed: outcome.trashedCount,
                     reclaimed: outcome.reclaimedBytes,
                     toolOutput: outcome.toolOutput?.isEmpty == false ? outcome.toolOutput : nil,
-                    failures: outcome.failures.map { "\($0.path): \($0.reason)" }
+                    failures: outcome.failures.map { "\($0.path): \($0.reason)" },
+                    canRetryAsAdministrator: outcome.needsAdministrator,
+                    revealPath: outcome.removedTheItemItself ? nil : item.location.path
                 )
                 // Keyed on the item's own fate: a support file that could not
                 // be trashed does not put the application back, and leaving the
@@ -335,7 +359,10 @@ final class UninstallerModel {
         }
     }
 
-    func dismissSummary() { summary = nil }
+    func dismissSummary() {
+        summary = nil
+        retry = nil
+    }
 
     /// Exposed so the ordering can be tested against a fixture rather than
     /// whatever software happens to be installed on the machine.

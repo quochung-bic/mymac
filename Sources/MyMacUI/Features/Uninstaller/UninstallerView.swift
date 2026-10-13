@@ -313,6 +313,12 @@ private struct SummarySheet: View {
             }
 
             HStack {
+                if summary.canRetryAsAdministrator {
+                    Button("Remove as Administrator…") { model.retryAsAdministrator() }
+                }
+                if let path = summary.revealPath, !summary.failures.isEmpty {
+                    Button("Show in Finder") { model.revealInFinder(path) }
+                }
                 Spacer()
                 Button("Done") { model.dismissSummary() }
                     .keyboardShortcut(.defaultAction)

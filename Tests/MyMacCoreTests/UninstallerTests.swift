@@ -298,6 +298,13 @@ struct PackageCatalogTests {
     }
 }
 
+private final class Received: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [String] = []
+    var paths: [String] { lock.withLock { stored } }
+    func add(_ path: String) { lock.withLock { stored.append(path) } }
+}
+
 @Suite("Uninstall safety")
 struct UninstallSafetyTests {
     /// Populates a fake home with an app bundle and one support folder.
@@ -308,6 +315,71 @@ struct UninstallSafetyTests {
         try temp.makeFile("Library/Application Support/com.example.app/state.db", bytes: 8192)
         return InstalledItem(id: "app", name: "Example", version: "1.0", source: .application,
                              location: bundle, bundleIdentifier: "com.example.app", size: 4096)
+    }
+
+    @Test func flagsABundleOnlyAnAdministratorCanTrash() async throws {
+        let temp = try TemporaryDirectory()
+        let item = try populate(temp)
+        let service = UninstallService(home: temp.url,
+                                       trasher: { _ in throw CocoaError(.fileWriteNoPermission) })
+
+        let outcome = await service.uninstall(item, leftovers: [])
+
+        #expect(outcome.needsAdministrator)
+        #expect(!outcome.removedTheItemItself)
+        #expect(outcome.failures.first?.reason.contains("administrator password") == true)
+    }
+
+    @Test func doesNotAskForAdministratorOverAnotherKindOfFailure() async throws {
+        let temp = try TemporaryDirectory()
+        let item = try populate(temp)
+        let service = UninstallService(home: temp.url,
+                                       trasher: { _ in throw CocoaError(.fileWriteVolumeReadOnly) })
+
+        let outcome = await service.uninstall(item, leftovers: [])
+
+        #expect(!outcome.needsAdministrator)
+    }
+
+    @Test func handsTheValidatedBundlePathToTheAdministratorTrasher() async throws {
+        let temp = try TemporaryDirectory()
+        let item = try populate(temp)
+        let received = Received()
+        let service = UninstallService(home: temp.url,
+                                       trasher: { _ in throw CocoaError(.fileWriteNoPermission) },
+                                       administratorTrasher: { received.add($0) })
+
+        let outcome = await service.uninstall(item, leftovers: [], asAdministrator: true)
+
+        #expect(received.paths.count == 1)
+        #expect(received.paths.first.map { PathSafety.canonicalPath($0) } == PathSafety.canonicalPath(item.location.path))
+        #expect(outcome.removedTheItemItself)
+        #expect(outcome.succeeded)
+    }
+
+    @Test func neverHandsAPathOutsideTheApplicationsFoldersToTheAdministratorTrasher() async throws {
+        let temp = try TemporaryDirectory()
+        let document = try temp.makeFile("Documents/thesis.pdf", bytes: 10_000)
+        let item = InstalledItem(id: "x", name: "Not An App", version: nil, source: .application,
+                                 location: document, bundleIdentifier: "com.example.fake", size: 10_000)
+        let received = Received()
+        let service = UninstallService(home: temp.url, administratorTrasher: { received.add($0) })
+
+        let outcome = await service.uninstall(item, leftovers: [], asAdministrator: true)
+
+        #expect(received.paths.isEmpty)
+        #expect(!outcome.succeeded)
+    }
+
+    @Test func reportsAMissingAdministratorTrasherInsteadOfPretendingToRemove() async throws {
+        let temp = try TemporaryDirectory()
+        let item = try populate(temp)
+
+        let outcome = await UninstallService(home: temp.url)
+            .uninstall(item, leftovers: [], asAdministrator: true)
+
+        #expect(!outcome.removedTheItemItself)
+        #expect(!outcome.succeeded)
     }
 
     @Test func refusesAnApplicationOutsideTheApplicationsFolders() async throws {
