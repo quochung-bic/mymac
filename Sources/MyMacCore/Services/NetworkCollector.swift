@@ -289,7 +289,7 @@ public final class NetworkCollector {
     }
 
     /// Radio conditions, when the primary link is Wi-Fi. Every value here is
-    /// readable without any permission; the SSID is not, and is left out.
+    /// readable without any permission. The SSID is deliberately not read.
     private nonisolated static func wifiSignal() -> WiFiSignal? {
         guard let interface = CWWiFiClient.shared().interface(), interface.powerOn() else { return nil }
         let rssi = interface.rssiValue()
@@ -313,8 +313,7 @@ public final class NetworkCollector {
         default: width = 0
         }
 
-        return WiFiSignal(networkName: interface.ssid(),
-                          rssi: rssi,
+        return WiFiSignal(rssi: rssi,
                           noise: interface.noiseMeasurement(),
                           transmitRate: interface.transmitRate(),
                           channel: channel?.channelNumber ?? 0,

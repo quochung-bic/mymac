@@ -1,5 +1,4 @@
 import AppKit
-import CoreLocation
 import MyMacCore
 import Observation
 import SwiftUI
@@ -11,13 +10,12 @@ import SwiftUI
 /// middle of doing something else.
 @MainActor
 @Observable
-final class PermissionsModel: NSObject, CLLocationManagerDelegate {
+final class PermissionsModel {
     private(set) var statuses: [Permission.Kind: PermissionStatus] = [:]
     /// Full Disk Access was granted once and is gone now. The build signs
     /// ad-hoc, so every reinstall drops it without a word.
     private(set) var fullDiskAccessLapsed = false
 
-    @ObservationIgnored private let locationManager = CLLocationManager()
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let fullDiskAccessProbe: () -> PermissionStatus
     private static let everGrantedKey = "fullDiskAccessEverGranted"
@@ -26,8 +24,6 @@ final class PermissionsModel: NSObject, CLLocationManagerDelegate {
          fullDiskAccessProbe: @escaping () -> PermissionStatus = { FullDiskAccess.status() }) {
         self.defaults = defaults
         self.fullDiskAccessProbe = fullDiskAccessProbe
-        super.init()
-        locationManager.delegate = self
         refresh()
     }
 
@@ -36,7 +32,6 @@ final class PermissionsModel: NSObject, CLLocationManagerDelegate {
         if fullDiskAccess == .granted { defaults.set(true, forKey: Self.everGrantedKey) }
         fullDiskAccessLapsed = fullDiskAccess == .denied && defaults.bool(forKey: Self.everGrantedKey)
         statuses[.fullDiskAccess] = fullDiskAccess
-        statuses[.location] = Self.locationStatus(locationManager.authorizationStatus)
     }
 
     func status(of kind: Permission.Kind) -> PermissionStatus {
@@ -56,30 +51,12 @@ final class PermissionsModel: NSObject, CLLocationManagerDelegate {
         NSWorkspace.shared.open(FullDiskAccess.settingsURL)
     }
 
-    /// Either raises the system prompt, or opens the pane where the user has to
-    /// grant it by hand — Full Disk Access has no programmatic request.
+    /// Full Disk Access has no programmatic request, so the user is sent to the
+    /// pane where it has to be granted by hand.
     func request(_ permission: Permission) {
         switch permission.id {
-        case .location:
-            if status(of: .location) == .notDetermined {
-                locationManager.requestWhenInUseAuthorization()
-            } else {
-                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!)
-            }
         case .fullDiskAccess:
             openFullDiskAccessSettings()
-        }
-    }
-
-    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        Task { @MainActor in self.refresh() }
-    }
-
-    private static func locationStatus(_ status: CLAuthorizationStatus) -> PermissionStatus {
-        switch status {
-        case .authorized, .authorizedAlways: .granted
-        case .denied, .restricted: .denied
-        default: .notDetermined
         }
     }
 }
@@ -99,7 +76,7 @@ struct PermissionsPanel: View {
             }
 
             Card(title: "Never Requested", symbol: "checkmark.shield", fillsHeight: true) {
-                Text("Every feature works without the two above. These are not asked for at all, and the app cannot use them:")
+                Text("Every feature works without Full Disk Access. These are not asked for at all, and the app cannot use them:")
                     .font(.note)
                     .foregroundStyle(.secondary)
                 LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading),

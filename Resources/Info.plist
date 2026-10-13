@@ -34,8 +34,6 @@
 	     point the app promotes itself to a regular activation policy. -->
 	<key>LSUIElement</key>
 	<true/>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Shows the name of the Wi-Fi network you are joined to. macOS treats a network name as location data. Everything else on the Network page works without this.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Asks Finder to move an application to the Trash when it was installed for all users and needs an administrator password. Nothing else is controlled.</string>
 	<key>NSHumanReadableCopyright</key>

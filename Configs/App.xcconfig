@@ -22,7 +22,7 @@ DEVELOPMENT_LANGUAGE = en
 // MARK: - Info.plist
 //
 // Checked in and hand-maintained, rather than generated. It carries the bundle
-// identifier above, an NSLocationWhenInUseUsageDescription that is three
+// identifier above, an NSAppleEventsUsageDescription that is a few
 // sentences of prose, and explanatory comments — none of which an xcconfig
 // holds well. One plist, one source of truth.
 GENERATE_INFOPLIST_FILE = NO

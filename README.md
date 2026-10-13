@@ -339,9 +339,8 @@ The Wi-Fi card reports signal strength, the **noise floor**, and the gap between
 them. Signal strength alone is a poor guide — a strong signal in a noisy room is
 still a bad link — so the signal-to-noise ratio gets equal billing, alongside the
 channel, band and width. The network name is deliberately absent: macOS gates the
-SSID behind Location Services, and asking for a location permission to show one
-label is not a trade this app makes. Everything else on that card needs no
-permission at all.
+SSID behind Location Services, and the name is one click away in the system menu.
+Nothing on that card needs a permission.
 
 The **public address** is the one thing on the Network page that cannot be
 answered locally: a machine behind NAT has no way to know its public address
@@ -598,12 +597,11 @@ in one place rather than meeting a system prompt part-way through a task. Nothin
 is requested at launch, and nothing is requested on its own — every prompt there
 is raised by a button the user pressed.
 
-Both permissions are optional:
+The one permission is optional:
 
 | | Unlocks | Without it |
 | --- | --- | --- |
 | Full Disk Access | Caches belonging to Safari and Mail; local iPhone/iPad backups | Everything else. Most sandboxed app caches are readable already — 36 of 38 on the machine this was built on — and the protected few are shown as skipped rather than reported as empty |
-| Location | The name of the joined Wi-Fi network | Signal strength, noise, channel and link rate are all still shown; macOS gates only the name |
 
 macOS offers no API to query Full Disk Access, so it is **probed**: the TCC
 database is readable only by an application that has been granted it, so the app
@@ -641,11 +639,5 @@ identity for that.
 - **Two network totals are shown**: *since boot*, taken from the interface's own
   cumulative counters, and *this session*, counted from the moment monitoring
   started. Neither is a substitute for the other, so both are on screen.
-- **The Location permission currently unlocks nothing.** The Wi-Fi network name
-  is read and then discarded: no view displays it, so granting Location changes
-  nothing on screen while the Wi-Fi card still says the app does not ask for it.
-  Two sections of this file disagree about whether the name should be shown at
-  all. That is an open decision, not an oversight to work around — either the
-  name gets displayed or the permission comes out entirely.
 - **Open at Login needs a real signature.** With the ad-hoc signature from the
   build script, `SMAppService` will refuse and the toggle reports why.

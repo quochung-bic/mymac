@@ -20,7 +20,6 @@ public enum PermissionStatus: Sendable, Equatable {
 public struct Permission: Sendable, Identifiable, Equatable {
     public enum Kind: String, Sendable {
         case fullDiskAccess
-        case location
     }
 
     public let id: Kind
@@ -42,14 +41,6 @@ public struct Permission: Sendable, Identifiable, Equatable {
             unlocks: "Cleaning caches belonging to Safari and Mail, and finding local iPhone and iPad backups.",
             withoutIt: "Everything else works. Most sandboxed app caches are readable already; only the few macOS protects are skipped, and they are shown as skipped rather than reported as empty.",
             isRequestable: false
-        ),
-        Permission(
-            id: .location,
-            title: "Location",
-            symbol: "location",
-            unlocks: "Showing the name of the Wi-Fi network you are joined to.",
-            withoutIt: "Signal strength, noise, channel and link rate are all still shown — macOS only gates the network name itself.",
-            isRequestable: true
         ),
     ]
 
