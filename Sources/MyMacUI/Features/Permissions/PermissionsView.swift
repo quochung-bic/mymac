@@ -48,6 +48,10 @@ final class PermissionsModel: NSObject, CLLocationManagerDelegate {
         fullDiskAccessLapsed = false
     }
 
+    func revealAppInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+    }
+
     func openFullDiskAccessSettings() {
         NSWorkspace.shared.open(FullDiskAccess.settingsURL)
     }
@@ -87,10 +91,11 @@ struct PermissionsPanel: View {
     var body: some View {
         VStack(spacing: 12) {
             ForEach(Permission.all) { permission in
-                PermissionRow(permission: permission, status: model.status(of: permission.id)) {
-                    model.request(permission)
-                }
-                .frame(height: 142)
+                let status = model.status(of: permission.id)
+                PermissionRow(permission: permission, status: status,
+                              request: { model.request(permission) },
+                              reveal: { model.revealAppInFinder() })
+                    .frame(height: permission.id == .fullDiskAccess && status != .granted ? 184 : 142)
             }
 
             Card(title: "Never Requested", symbol: "checkmark.shield", fillsHeight: true) {
@@ -120,6 +125,7 @@ private struct PermissionRow: View {
     let permission: Permission
     let status: PermissionStatus
     let request: () -> Void
+    let reveal: () -> Void
 
     var body: some View {
         Card(title: permission.title, symbol: permission.symbol, fillsHeight: true) {
@@ -130,6 +136,14 @@ private struct PermissionRow: View {
                     Text(permission.withoutIt)
                         .font(.note)
                         .foregroundStyle(.secondary)
+                    if permission.id == .fullDiskAccess, status != .granted {
+                        // A stale entry looks switched on but belongs to the
+                        // previous build, so adding MyMac again does nothing
+                        // until it is removed.
+                        Text("Already listed but still not granted? Remove MyMac from the list with −, then add it again — the entry belongs to an earlier build.")
+                            .font(.note)
+                            .foregroundStyle(.orange)
+                    }
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 7) {
@@ -137,6 +151,9 @@ private struct PermissionRow: View {
                     if status != .granted {
                         Button(permission.isRequestable && status == .notDetermined
                                ? "Allow…" : "Open Settings…", action: request)
+                    }
+                    if permission.id == .fullDiskAccess, status != .granted {
+                        Button("Show MyMac in Finder", action: reveal)
                     }
                     if !permission.isRequestable {
                         Text("Granted in System Settings")
