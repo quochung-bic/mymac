@@ -87,7 +87,7 @@ retried. A fired alert also marks the menu bar item (tint) so it is visible
 without notifications.
 
 **Settings:** one card, "Alerts": a master switch and one switch per rule, all
-off by default except none. Thresholds are not exposed in this phase; adding
+off by default. Thresholds are not exposed in this phase; adding
 "Advanced" later is cheap and a rule builder is deliberately out of scope.
 
 ## Compatibility
